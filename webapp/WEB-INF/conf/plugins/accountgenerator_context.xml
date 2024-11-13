@@ -4,6 +4,19 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd" >
 
+    <!-- IHttpTransportProvider declarations -->
+    <bean id="accountgenerator.identitystore.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpAccessTransport" >
+        <property name="ApiEndPointUrl">
+            <value>${accountgenerator.identitystore.ApiEndPointUrl}</value>
+        </property>
+    </bean>
 
+    <bean id="accountgenerator.restTransport.httpAccess" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.IdentityTransportRest">
+        <constructor-arg ref="accountgenerator.identitystore.httpAccessTransport"/>
+    </bean>
 
+    <!-- IdentityService impl -->
+    <bean id="accountgenerator.identityService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.IdentityService">
+        <constructor-arg ref="accountgenerator.restTransport.httpAccess"/>
+    </bean>
 </beans>
