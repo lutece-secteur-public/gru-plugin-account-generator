@@ -15,8 +15,16 @@
         <constructor-arg ref="accountgenerator.identitystore.httpAccessTransport"/>
     </bean>
 
+    <bean id="accountgenerator.restAccountManagementTransport.httpAccess" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.AccountManagementTransportRest">
+        <constructor-arg ref="accountgenerator.identitystore.httpAccessTransport"/>
+    </bean>
+
     <!-- IdentityService impl -->
     <bean id="accountgenerator.identityService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.IdentityService">
         <constructor-arg ref="accountgenerator.restTransport.httpAccess"/>
+    </bean>
+
+    <bean id="accountgenerator.accountManagementService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.AccountManagementService">
+        <constructor-arg ref="accountgenerator.restAccountManagementTransport.httpAccess"/>
     </bean>
 </beans>

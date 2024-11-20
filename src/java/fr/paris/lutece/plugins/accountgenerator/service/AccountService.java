@@ -2,16 +2,17 @@ package fr.paris.lutece.plugins.accountgenerator.service;
 
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountCreationDto;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.openam.CreateAccountResponse;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.AttributeDto;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.ExpirationDefinition;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.IdentityDto;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.RequestAuthor;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.crud.IdentityChangeRequest;
-import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.crud.IdentityChangeResponse;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.search.IdentitySearchRequest;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.search.IdentitySearchResponse;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.search.SearchAttribute;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.search.SearchDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.service.AccountManagementService;
 import fr.paris.lutece.plugins.identitystore.v3.web.service.IdentityService;
 import fr.paris.lutece.plugins.identitystore.web.exception.IdentityStoreException;
 import fr.paris.lutece.portal.service.spring.SpringContextService;
@@ -25,6 +26,7 @@ public class AccountService
     private static AccountService instance;
 
     private static final IdentityService _identityService = SpringContextService.getBean("accountgenerator.identityService");
+    private static final AccountManagementService _accountManagementService = SpringContextService.getBean("accountgenerator.accountManagementService");
     private static final String MAIL = "@paris.test.fr";
     private static final String MAIL_KEY = "12";
     private static final String LOGIN_KEY = "16";
@@ -58,15 +60,17 @@ public class AccountService
                 {
                     try
                     {
-                        //TODO appel à l'API de création de comptes et récupération du GUID
-                        //account.setGuid();
+                        CreateAccountResponse accountResponse = _accountManagementService.createAccount(mail, password, author, clientCode);
+                        if(accountResponse != null){
+                            account.setGuid(accountResponse.getUid());
+                        }
                         account.setPassword(password);
                     } catch (Exception e)
                     {
                         throw new RuntimeException(e);
                     }
                 }
-                IdentityChangeRequest identityChange = buildIdentityChangeRequest(accountCreationDto, i, mail);
+                IdentityChangeRequest identityChange = buildIdentityChangeRequest(accountCreationDto, mail);
                 IdentitySearchRequest identitySearchRequest = buildSearchRequest(mail);
                 try
                 {
@@ -85,7 +89,7 @@ public class AccountService
         return accounts;
     }
 
-    public IdentityChangeRequest buildIdentityChangeRequest( AccountCreationDto accountCreationDto, int index,
+    public IdentityChangeRequest buildIdentityChangeRequest( AccountCreationDto accountCreationDto,
                                                              String mail )
     {
         IdentityChangeRequest identityChangeRequest = new IdentityChangeRequest( );
@@ -100,11 +104,11 @@ public class AccountService
         expirationDefinition.setExpirationDate(Timestamp.valueOf(now.toLocalDateTime().plusDays(accountCreationDto.getValidityTime())));
         identityDto.setExpiration(expirationDefinition);
 
-        identityChangeRequest.getIdentity().getAttributes().add(buildAttribute(mail, MAIL_KEY));
-        identityChangeRequest.getIdentity().getAttributes().add(buildAttribute(mail, LOGIN_KEY));
-
+        identityDto.getAttributes().add(buildAttribute(MAIL_KEY, mail));
+        identityDto.getAttributes().add(buildAttribute(LOGIN_KEY, mail));
 
         identityChangeRequest.setIdentity(identityDto);
+
         return identityChangeRequest;
     }
 
@@ -125,13 +129,14 @@ public class AccountService
     public IdentitySearchRequest buildSearchRequest(String mail)
     {
         IdentitySearchRequest identitySearchRequest = new IdentitySearchRequest( );
+
         SearchDto searchDto = new SearchDto( );
-        searchDto.setAttributes(new ArrayList<SearchAttribute>() );
         SearchAttribute searchAttribute = new SearchAttribute( );
         searchAttribute.setKey(LOGIN_KEY);
         searchAttribute.setValue(mail);
         searchDto.getAttributes().add(searchAttribute);
         identitySearchRequest.setSearch(searchDto);
+
         return identitySearchRequest;
     }
 

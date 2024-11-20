@@ -29,7 +29,7 @@ public class AccountRestService
                                     @HeaderParam( Constants.PARAM_APPLICATION_CODE ) String strHeaderAppCode ) throws IdentityStoreException
     {
         final AccountCreateRequest request = new AccountCreateRequest( accountRequest, strHeaderAppCode, strHeaderClientCode, authorName, authorType );
-        return buildJsonResponse(request.doRequest());
+        return buildJsonResponse((ResponseDto) request.doRequest());
     }
 
     private Response buildJsonResponse( final ResponseDto entity)
