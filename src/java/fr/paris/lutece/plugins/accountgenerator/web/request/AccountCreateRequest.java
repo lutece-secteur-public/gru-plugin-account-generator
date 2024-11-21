@@ -4,7 +4,6 @@ import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountReques
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountResponse;
 import fr.paris.lutece.plugins.accountgenerator.service.AccountService;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.AbstractIdentityStoreRequest;
-import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.ResponseDto;
 import fr.paris.lutece.plugins.identitystore.web.exception.IdentityStoreException;
 
 public class AccountCreateRequest extends AbstractIdentityStoreRequest
@@ -27,11 +26,11 @@ public class AccountCreateRequest extends AbstractIdentityStoreRequest
     }
 
     @Override
-    protected ResponseDto doSpecificRequest() throws IdentityStoreException
+    protected AccountResponse doSpecificRequest() throws IdentityStoreException
     {
         final AccountResponse response = new AccountResponse();
 
-        response.setAccountList(AccountService.instance().createAccountBatch(_accountRequest.getAccoutDto(), this._author, this._strClientCode));
+        response.setAccountList(AccountService.instance().createAccountBatch(_accountRequest.getAccountDto(), this._author, this._strClientCode));
 
         return response;
     }

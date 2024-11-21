@@ -2,7 +2,7 @@ package fr.paris.lutece.plugins.accountgenerator.web.rs;
 
 import fr.paris.lutece.plugins.accountgenerator.web.request.AccountCreateRequest;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountRequest;
-import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.ResponseDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.AccountResponse;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.util.Constants;
 import fr.paris.lutece.plugins.identitystore.web.exception.IdentityStoreException;
 import fr.paris.lutece.plugins.rest.service.RestConstants;
@@ -29,11 +29,7 @@ public class AccountRestService
                                     @HeaderParam( Constants.PARAM_APPLICATION_CODE ) String strHeaderAppCode ) throws IdentityStoreException
     {
         final AccountCreateRequest request = new AccountCreateRequest( accountRequest, strHeaderAppCode, strHeaderClientCode, authorName, authorType );
-        return buildJsonResponse((ResponseDto) request.doRequest());
-    }
-
-    private Response buildJsonResponse( final ResponseDto entity)
-    {
+        final AccountResponse entity = (AccountResponse) request.doRequest();
         return Response.status( entity.getStatus( ).getHttpCode( ) ).entity( entity ).type( MediaType.APPLICATION_JSON_TYPE ).build( );
     }
 }
