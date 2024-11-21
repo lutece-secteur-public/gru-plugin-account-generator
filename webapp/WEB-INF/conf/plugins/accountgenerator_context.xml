@@ -23,7 +23,7 @@
 
     <bean id="accountgenerator.restAccountManagementTransport.httpAccess" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.transportrest.AccountManagementTransportRest">
         <constructor-arg ref="accountgenerator.accountManagement.httpAccessTransport"/>
-        <constructor-arg ref="${accountgenerator.accountManagement.Api}"/>
+        <constructor-arg type="java.lang.String" value="${accountgenerator.accountManagement.Api}" />
     </bean>
 
     <!-- IdentityService impl -->
