@@ -31,8 +31,32 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator;
+package fr.paris.lutece.plugins.accountgenerator.dto;
 
-public class AccountGeneratorTest
+import java.util.List;
+
+public class CitiesCodesListResponse
 {
+    private List<String> result;
+    private String status;
+
+    public List<String> getResult( )
+    {
+        return result;
+    }
+
+    public void setResult( List<String> result )
+    {
+        this.result = result;
+    }
+
+    public String getStatus( )
+    {
+        return status;
+    }
+
+    public void setStatus( String status )
+    {
+        this.status = status;
+    }
 }

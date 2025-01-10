@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <plug-in>
     <name>accountgenerator</name>
-    <class>fr.paris.lutece.portal.service.plugin.PluginDefaultImplementation</class>
+    <class>fr.paris.lutece.plugins.accountgenerator.AccountGeneratorPlugin</class>
     <version>1.0.0-SNAPSHOT</version>
     <documentation></documentation>
     <installation></installation>
@@ -102,17 +102,15 @@
     -->
 
     <!-- Daemons -->
-    <!-- 
     <daemons>
         <daemon>
-            <daemon-id>...</daemon-id>
-            <daemon-name>...</daemon-name>
-            <daemon-description>...</daemon-description>
-            <daemon-class>...</daemon-class>
+            <daemon-id>purgeExpiratedIdentityAccountsDaemons</daemon-id>
+            <daemon-name>accountgenerator.daemon.purgeExpiratedIdentityAccountsDaemons.name</daemon-name>
+            <daemon-description>accountgenerator.daemon.purgeExpiratedIdentityAccountsDaemons.description</daemon-description>
+            <daemon-class>fr.paris.lutece.plugins.accountgenerator.daemon.PurgeExpiratedIdentityAccountsDaemons</daemon-class>
         </daemon>
     </daemons>
-    -->
-    
+
    
     <!-- Other services -->
     <!-- * servlets -->

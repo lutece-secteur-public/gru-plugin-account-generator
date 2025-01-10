@@ -31,8 +31,46 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator;
+package fr.paris.lutece.plugins.accountgenerator.dto;
 
-public class AccountGeneratorTest
+public class PurgeExipratedIdentityAccountsResult
 {
+    private int nbDeletedAccounts = 0;
+    private int nbDeletedIdentities = 0;
+
+    public int incrementNbDeletedAccounts( )
+    {
+        return ++nbDeletedAccounts;
+    }
+
+    public int incrementNbDeletedIdentities( )
+    {
+        return ++nbDeletedIdentities;
+    }
+
+    public int getNbDeletedAccounts( )
+    {
+        return nbDeletedAccounts;
+    }
+
+    public void setNbDeletedAccounts( int nbDeletedAccounts )
+    {
+        this.nbDeletedAccounts = nbDeletedAccounts;
+    }
+
+    public int getNbDeletedIdentities( )
+    {
+        return nbDeletedIdentities;
+    }
+
+    public void setNbDeletedIdentities( int nbDeletedIdentities )
+    {
+        this.nbDeletedIdentities = nbDeletedIdentities;
+    }
+
+    @Override
+    public String toString( )
+    {
+        return "Deleted " + nbDeletedAccounts + " accounts and " + nbDeletedIdentities + " identities";
+    }
 }

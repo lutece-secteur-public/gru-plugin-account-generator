@@ -4,6 +4,12 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd" >
 
+    <!-- Cache -->
+    <bean id="accountgenerator.geocodesCache"  class="fr.paris.lutece.plugins.accountgenerator.service.GeocodesCache" />
+
+    <!-- DAO -->
+    <bean id="accountgenerator.accountDao" class="fr.paris.lutece.plugins.accountgenerator.business.IdentityAccountDao" />
+
     <!-- IHttpTransportProvider declarations -->
     <bean id="accountgenerator.identitystore.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpAccessTransport" >
         <property name="ApiEndPointUrl">
@@ -11,7 +17,7 @@
         </property>
     </bean>
 
-    <bean id="accountgenerator.accountManagement.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpAccessTransport" >
+    <bean id="accountgenerator.accountManagement.httpAccessTransport" class="fr.paris.lutece.plugins.accountmanagement.web.rs.service.HttpAccessTransport" >
         <property name="ApiEndPointUrl">
             <value>${accountgenerator.accountManagement.ApiEndPointUrl}</value>
         </property>
@@ -21,17 +27,19 @@
         <constructor-arg ref="accountgenerator.identitystore.httpAccessTransport"/>
     </bean>
 
-    <bean id="accountgenerator.restAccountManagementTransport.httpAccess" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.transportrest.AccountManagementTransportRest">
+    <bean id="accountgenerator.restAccountManagementTransport.httpAccess" class="fr.paris.lutece.plugins.accountmanagement.web.rs.service.transportrest.AccountManagementTransportRest">
         <constructor-arg ref="accountgenerator.accountManagement.httpAccessTransport"/>
-        <constructor-arg type="java.lang.String" value="${accountgenerator.accountManagement.Api}" />
+        <constructor-arg type="java.lang.String" value="${accountgenerator.accountManagement.path}" />
     </bean>
 
-    <!-- IdentityService impl -->
+    <!-- Service impl -->
     <bean id="accountgenerator.identityService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.IdentityService">
         <constructor-arg ref="accountgenerator.restTransport.httpAccess"/>
     </bean>
-
-    <bean id="accountgenerator.accountManagementService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.AccountManagementService">
+    <bean id="accountgenerator.accountManagementService" class="fr.paris.lutece.plugins.accountmanagement.web.service.AccountManagementService">
         <constructor-arg ref="accountgenerator.restAccountManagementTransport.httpAccess"/>
     </bean>
+
+    <!-- REST -->
+    <bean id="accountgenerator.accountGeneratorRestService"  class="fr.paris.lutece.plugins.accountgenerator.web.rs.AccountGeneratorRestService" />
 </beans>

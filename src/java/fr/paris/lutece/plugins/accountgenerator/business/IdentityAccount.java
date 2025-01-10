@@ -31,8 +31,54 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator;
+package fr.paris.lutece.plugins.accountgenerator.business;
 
-public class AccountGeneratorTest
+import java.util.Date;
+
+public class IdentityAccount
 {
+    private String guid;
+    private String cuid;
+    private Date creationDate;
+    private Date expirationDate;
+
+    public String getGuid( )
+    {
+        return guid;
+    }
+
+    public void setGuid( String guid )
+    {
+        this.guid = guid;
+    }
+
+    public String getCuid( )
+    {
+        return cuid;
+    }
+
+    public void setCuid( String cuid )
+    {
+        this.cuid = cuid;
+    }
+
+    public Date getCreationDate( )
+    {
+        return creationDate;
+    }
+
+    public void setCreationDate( Date creationDate )
+    {
+        this.creationDate = creationDate;
+    }
+
+    public Date getExpirationDate( )
+    {
+        return expirationDate;
+    }
+
+    public void setExpirationDate( Date expirationDate )
+    {
+        this.expirationDate = expirationDate;
+    }
 }

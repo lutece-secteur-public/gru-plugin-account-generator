@@ -31,8 +31,35 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator;
+package fr.paris.lutece.plugins.accountgenerator.daemon;
 
-public class AccountGeneratorTest
+import fr.paris.lutece.plugins.accountgenerator.dto.PurgeExipratedIdentityAccountsResult;
+import fr.paris.lutece.plugins.accountgenerator.service.IdentityAccountPurgeService;
+import fr.paris.lutece.portal.service.daemon.Daemon;
+import fr.paris.lutece.portal.service.util.AppLogService;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+public class PurgeExpiratedIdentityAccountsDaemons extends Daemon
 {
+
+    @Override
+    public void run( )
+    {
+        final LocalDateTime start = LocalDateTime.now( );
+        AppLogService.info( "Purge Expirated Identity Accounts daemon started" );
+        final PurgeExipratedIdentityAccountsResult purge = IdentityAccountPurgeService.instance( ).purge( );
+        final LocalDateTime stop = LocalDateTime.now( );
+        final long seconds = Duration.between( start, stop ).toSeconds( );
+
+        // Calculate the hours, minutes, and seconds
+        long S = seconds % 60; // Calculate the remaining seconds
+        long H = seconds / 60; // Convert total seconds to minutes
+        long M = H % 60; // Calculate the remaining minutes
+        H = H / 60; // Convert total minutes to hours
+
+        AppLogService.info( purge );
+        AppLogService.info( "Purge Expirated Identity Accounts daemon ended in " + H + ":" + M + ":" + S );
+    }
 }

@@ -31,8 +31,19 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator;
+package fr.paris.lutece.plugins.accountgenerator.business;
 
-public class AccountGeneratorTest
+import fr.paris.lutece.portal.service.plugin.Plugin;
+
+import java.util.List;
+
+public interface IIdentityAccountDao
 {
+    String BEAN_NAME = "accountgenerator.accountDao";
+
+    void bulkSave( final List<IdentityAccount> accounts, final Plugin plugin );
+
+    void save( final IdentityAccount account, final Plugin plugin );
+
+    List<IdentityAccount> loadExpiredAccounts( Plugin plugin );
 }
