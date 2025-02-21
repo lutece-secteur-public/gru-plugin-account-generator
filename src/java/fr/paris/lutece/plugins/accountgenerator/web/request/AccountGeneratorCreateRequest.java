@@ -39,8 +39,9 @@ import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.Acc
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.AccountGenerationRequest;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.AccountGenerationResponse;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.GeneratedAccountDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.util.Constants;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.util.ResponseStatusFactory;
-import fr.paris.lutece.plugins.identitystore.web.exception.IdentityStoreException;
+import fr.paris.lutece.plugins.identitystore.web.exception.*;
 import fr.paris.lutece.portal.service.util.AppPropertiesService;
 
 import java.util.List;
@@ -61,12 +62,36 @@ public class AccountGeneratorCreateRequest extends AbstractIdentityStoreRequest
     }
 
     @Override
-    protected void validateSpecificRequest( ) throws IdentityStoreException
-    {
+    protected void fetchResources() throws ResourceNotFoundException {
+
+    }
+
+    @Override
+    protected void validateRequestFormat() throws RequestFormatException {
         if ( _accountGenerationRequest == null || _accountGenerationRequest.getAccountGenerationDto( ) == null )
         {
-            throw new IdentityStoreException( "The request must specify an account generation. I.e: " + JSON_EXAMPLE );
+            throw new RequestFormatException( "The request must specify an account generation. I.e: " + JSON_EXAMPLE, Constants.PROPERTY_REST_ERROR_ACCOUNT_GENERATION_REQUEST_FORMAT );
         }
+    }
+
+    @Override
+    protected void validateClientAuthorization() throws ClientAuthorizationException {
+
+    }
+
+    @Override
+    protected void validateResourcesConsistency() throws ResourceConsistencyException {
+
+    }
+
+    @Override
+    protected void formatRequestContent() throws RequestContentFormattingException {
+
+    }
+
+    @Override
+    protected void checkDuplicatesConsistency() throws DuplicatesConsistencyException {
+
     }
 
     @Override
