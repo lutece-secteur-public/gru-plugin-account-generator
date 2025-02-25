@@ -59,6 +59,7 @@ import fr.paris.lutece.portal.service.util.AppLogService;
 import fr.paris.lutece.portal.service.util.AppPropertiesService;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -147,6 +148,7 @@ public class IdentityAccountGeneratorService
     public List<GeneratedAccountDto> createIdentityAccountBatch( final AccountGenerationDto accountGenerationDto )
     {
         final Date generationDate = new Date( );
+        final Timestamp now = Timestamp.from( Instant.now( ) );
         final List<GeneratedAccountDto> generatedAccount = new ArrayList<>( );
 
         if ( accountGenerationDto != null )
@@ -201,8 +203,7 @@ public class IdentityAccountGeneratorService
                 // Create an identity
                 if ( !accountError )
                 {
-                    final IdentityChangeRequest identityChange = this.buildIdentityChangeRequest( accountGenerationDto, account.getGuid( ), mail, i,
-                            generationDate );
+                    final IdentityChangeRequest identityChange = this.buildIdentityChangeRequest( accountGenerationDto, account.getGuid( ), mail, i, now );
                     try
                     {
                         final IdentityChangeResponse createIdentityResponse = _identityService.createIdentity( identityChange, identityStoreClientCode,
@@ -263,7 +264,7 @@ public class IdentityAccountGeneratorService
     }
 
     public IdentityChangeRequest buildIdentityChangeRequest( final AccountGenerationDto accountGenerationDto, final String guid, final String mail,
-            int iteration, final Date generationDate )
+            int iteration, final Timestamp generationDate )
     {
         final IdentityChangeRequest identityChangeRequest = new IdentityChangeRequest( );
         final IdentityDto identityDto = new IdentityDto( );
@@ -340,7 +341,7 @@ public class IdentityAccountGeneratorService
         return date.format( dateTimeFormatter );
     }
 
-    public AttributeDto buildAttribute( final String key, final String value, final String certifier, final Date certificationDate )
+    public AttributeDto buildAttribute( final String key, final String value, final String certifier, final Timestamp certificationDate )
     {
         final AttributeDto attribute = new AttributeDto( );
 
