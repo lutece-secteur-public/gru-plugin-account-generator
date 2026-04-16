@@ -50,8 +50,15 @@ public class AccountGeneratorCreateRequest extends AbstractIdentityStoreRequest
 {
     private static final int generationLimit = AppPropertiesService.getPropertyInt( "accountgenerator.generation.limit", 50 );
     private static String JSON_EXAMPLE = "{\n" + "    \"generation\": {\n" + "        \"generateAccount\": true,\n"
-            + "        \"generationPattern\": \"XYZ\",\n" + "        \"generationIncrementOffset\": 30,\n" + "        \"nbDaysOfValidity\": 300,\n"
-            + "        \"batchSize\": 50\n" + "    }\n" + "}";
+            + "        \"generationIncrementOffset\": 30,\n" + "        \"nbDaysOfValidity\": 300,\n"
+            + "        \"batchSize\": 50,\n"
+            + "        \"loginPrefix\": \"testperfpf\",\n" + "        \"loginSuffix\": \"@yopmail.com\",\n"
+            + "        \"password\": \"Changeme1!\",\n"
+            + "        \"firstNamePrefix\": \"Prenom\",\n" + "        \"familyNamePrefix\": \"NOM\",\n"
+            + "        \"birthdate\": \"01/01/2000\",\n"
+            + "        \"birthCountryCode\": \"99100\",\n" + "        \"birthplaceCode\": \"75012\",\n"
+            + "        \"identityCertifier\": \"fccertifier\",\n" + "        \"mailLoginCertifier\": \"mailcertifier\"\n"
+            + "    }\n" + "}";
     private final AccountGenerationRequest _accountGenerationRequest;
 
     public AccountGeneratorCreateRequest( AccountGenerationRequest request, String strClientAppCode, String authorName, String authorType )

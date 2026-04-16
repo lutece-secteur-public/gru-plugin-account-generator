@@ -96,26 +96,26 @@ public class IdentityAccountGeneratorService
     private static final String identityStoreClientCode = AppPropertiesService.getProperty( "accountgenerator.accountManagement.client-code" );
     private static final String identityStoreClientName = AppPropertiesService.getProperty( "accountgenerator.accountManagement.client-name" );
 
-    // Configurable generation parameters
-    private static final String commonPassword = AppPropertiesService.getProperty( "accountgenerator.generation.password", "password123456789" );
-    private static final String commonMailSuffix = AppPropertiesService.getProperty( "accountgenerator.generation.mail.suffix", "@paris.test.fr" );
-    private static final String mailCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.email", "MAIL" );
-    private static final String loginCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.login", "MAIL" );
-    private static final String firstNameCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.first_name", "FC" );
-    private static final String familyNameCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.family-name", "FC" );
-    private static final String birthplaceCodeCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthplace_code", "FC" );
-    private static final String birthCountryCodeCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthcountry_code", "FC" );
-    private static final String birthCountryCodeValue = AppPropertiesService.getProperty( "accountgenerator.generation.value.birthcountry_code", "FC" );
-    private static final String genderCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.gender", "FC" );
-    private static final String birthdateCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthdate", "FC" );
+    // Default generation parameters (fallback when not provided in DTO)
+    private static final String defaultPassword = AppPropertiesService.getProperty( "accountgenerator.generation.password", "password123456789" );
+    private static final String defaultMailSuffix = AppPropertiesService.getProperty( "accountgenerator.generation.mail.suffix", "@paris.test.fr" );
+    private static final String defaultMailCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.email", "MAIL" );
+    private static final String defaultLoginCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.login", "MAIL" );
+    private static final String defaultFirstNameCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.first_name", "FC" );
+    private static final String defaultFamilyNameCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.family-name", "FC" );
+    private static final String defaultBirthplaceCodeCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthplace_code", "FC" );
+    private static final String defaultBirthCountryCodeCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthcountry_code", "FC" );
+    private static final String defaultBirthCountryCodeValue = AppPropertiesService.getProperty( "accountgenerator.generation.value.birthcountry_code", "99100" );
+    private static final String defaultGenderCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.gender", "FC" );
+    private static final String defaultBirthdateCertifier = AppPropertiesService.getProperty( "accountgenerator.generation.certifier.birthdate", "FC" );
     private static final int birthdateMaxGenerationDay = AppPropertiesService.getPropertyInt( "accountgenerator.generation.value.max.birthdate.day", 15 );
     private static final int birthdateMaxGenerationMonth = AppPropertiesService.getPropertyInt( "accountgenerator.generation.value.max.birthdate.month", 12 );
     private static final int birthdateMaxGenerationYear = AppPropertiesService.getPropertyInt( "accountgenerator.generation.value.max.birthdate.year", 2000 );
 
     // Generation helpers
     private static final List<String> genders = List.of( "0", "1", "2" );
-    private static final List<String> alphabet = List.of( "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
-            "U", "V", "W", "X", "Y", "Z" );
+    private static final String RANDOM_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final int RANDOM_SUFFIX_LENGTH = 5;
     private static final Random random = new Random( );
     private final LocalDate maxGenerationDate;
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern( "dd/MM/yyyy" );
@@ -140,7 +140,7 @@ public class IdentityAccountGeneratorService
 
     /**
      * Create a batch of identities and accounts (optional)
-     * 
+     *
      * @param accountGenerationDto
      *            the parametrization DTO of the generation
      * @return a list of generated identities and/or accounts
@@ -153,14 +153,17 @@ public class IdentityAccountGeneratorService
 
         if ( accountGenerationDto != null )
         {
+            // Resolve password: DTO value takes priority, then properties fallback
+            final String password = isNotBlank( accountGenerationDto.getPassword( ) ) ? accountGenerationDto.getPassword( ) : defaultPassword;
+
             for ( int i = 1; i <= accountGenerationDto.getBatchSize( ); i++ )
             {
                 final GeneratedAccountDto account = new GeneratedAccountDto( );
                 generatedAccount.add( account );
 
-                final String mail = "user.".concat( accountGenerationDto.getGenerationPattern( ) ).concat( "." )
-                        .concat( String.valueOf( accountGenerationDto.getGenerationIncrementOffset( ) + i ) ).concat( commonMailSuffix );
-                account.setPassword( commonPassword );
+                // Build login/email: new format [loginPrefix][number][loginSuffix] or legacy format
+                final String mail = buildLogin( accountGenerationDto, i );
+                account.setPassword( password );
                 account.setEmail( mail );
 
                 // Hold errors in order to clean data if both identity and account cannot be generated
@@ -173,7 +176,7 @@ public class IdentityAccountGeneratorService
                     // Create the account
                     try
                     {
-                        final ChangeAccountResponse accountCreationResponse = _accountManagementService.createAccount( mail, commonPassword, client );
+                        final ChangeAccountResponse accountCreationResponse = _accountManagementService.createAccount( mail, password, client );
                         if ( accountCreationResponse.getResult( ) != null && Objects.equals( accountCreationResponse.getStatus( ), "OK" ) )
                         {
                             account.setGuid( accountCreationResponse.getResult( ).getUid( ) );
@@ -263,6 +266,21 @@ public class IdentityAccountGeneratorService
         return generatedAccount;
     }
 
+    /**
+     * Build the login/email string. If loginPrefix and loginSuffix are provided, uses the new format:
+     * [loginPrefix][incrementalNumber][loginSuffix]. Otherwise falls back to the legacy format.
+     */
+    private String buildLogin( final AccountGenerationDto dto, final int iteration )
+    {
+        if ( isNotBlank( dto.getLoginPrefix( ) ) && isNotBlank( dto.getLoginSuffix( ) ) )
+        {
+            return dto.getLoginPrefix( ) + ( dto.getGenerationIncrementOffset( ) + iteration ) + dto.getLoginSuffix( );
+        }
+        // Legacy format
+        return "user.".concat( dto.getGenerationPattern( ) ).concat( "." )
+                .concat( String.valueOf( dto.getGenerationIncrementOffset( ) + iteration ) ).concat( defaultMailSuffix );
+    }
+
     public IdentityChangeRequest buildIdentityChangeRequest( final AccountGenerationDto accountGenerationDto, final String guid, final String mail,
             int iteration, final Timestamp generationDate )
     {
@@ -279,22 +297,84 @@ public class IdentityAccountGeneratorService
         expirationDefinition.setExpirationDate( Timestamp.valueOf( now.toLocalDateTime( ).plusDays( accountGenerationDto.getNbDaysOfValidity( ) ) ) );
         identityDto.setExpiration( expirationDefinition );
 
-        final LocalDate birthdate = this.getRandomDate( );
+        // Resolve certifiers: DTO values take priority, then properties fallback
+        final String idCertifier = isNotBlank( accountGenerationDto.getIdentityCertifier( ) ) ? accountGenerationDto.getIdentityCertifier( ) : null;
+        final String mlCertifier = isNotBlank( accountGenerationDto.getMailLoginCertifier( ) ) ? accountGenerationDto.getMailLoginCertifier( ) : null;
 
-        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_GENDER, this.getRandomGender( ), genderCertifier, generationDate ) );
-        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_FIRST_NAME,
-                this.getRandomAttribute( Constants.PARAM_FIRST_NAME, accountGenerationDto, iteration, " " ), firstNameCertifier, generationDate ) );
-        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_FAMILY_NAME,
-                this.getRandomAttribute( Constants.PARAM_FAMILY_NAME, accountGenerationDto, iteration, " " ), familyNameCertifier, generationDate ) );
-        identityDto.getAttributes( )
-                .add( this.buildAttribute( Constants.PARAM_BIRTH_DATE, this.getLocaleDateAsString( birthdate ), birthdateCertifier, generationDate ) );
-        identityDto.getAttributes( )
-                .add( this.buildAttribute( Constants.PARAM_BIRTH_COUNTRY_CODE, birthCountryCodeValue, birthCountryCodeCertifier, generationDate ) );
-        identityDto.getAttributes( ).add(
-                this.buildAttribute( Constants.PARAM_BIRTH_PLACE_CODE, this.getRandomBirthplaceCode( birthdate ), birthplaceCodeCertifier, generationDate ) );
-        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_EMAIL, mail, mailCertifier, generationDate ) );
-        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_LOGIN,
-                this.getRandomAttribute( Constants.PARAM_LOGIN, accountGenerationDto, iteration, "-" ), loginCertifier, generationDate ) );
+        final String effectiveGenderCertifier = idCertifier != null ? idCertifier : defaultGenderCertifier;
+        final String effectiveFirstNameCertifier = idCertifier != null ? idCertifier : defaultFirstNameCertifier;
+        final String effectiveFamilyNameCertifier = idCertifier != null ? idCertifier : defaultFamilyNameCertifier;
+        final String effectiveBirthdateCertifier = idCertifier != null ? idCertifier : defaultBirthdateCertifier;
+        final String effectiveBirthCountryCodeCertifier = idCertifier != null ? idCertifier : defaultBirthCountryCodeCertifier;
+        final String effectiveBirthplaceCodeCertifier = idCertifier != null ? idCertifier : defaultBirthplaceCodeCertifier;
+        final String effectiveMailCertifier = mlCertifier != null ? mlCertifier : defaultMailCertifier;
+        final String effectiveLoginCertifier = mlCertifier != null ? mlCertifier : defaultLoginCertifier;
+
+        // Resolve birthdate: DTO value or random
+        final String birthdateValue;
+        final LocalDate birthdateForGeo;
+        if ( isNotBlank( accountGenerationDto.getBirthdate( ) ) )
+        {
+            birthdateValue = accountGenerationDto.getBirthdate( );
+            birthdateForGeo = LocalDate.parse( birthdateValue, dateTimeFormatter );
+        }
+        else
+        {
+            birthdateForGeo = this.getRandomDate( );
+            birthdateValue = this.getLocaleDateAsString( birthdateForGeo );
+        }
+
+        // Resolve birth country code
+        final String effectiveBirthCountryCode = isNotBlank( accountGenerationDto.getBirthCountryCode( ) )
+                ? accountGenerationDto.getBirthCountryCode( )
+                : defaultBirthCountryCodeValue;
+
+        // Resolve birthplace code: DTO value or random from geocodes
+        final String effectiveBirthplaceCode = isNotBlank( accountGenerationDto.getBirthplaceCode( ) )
+                ? accountGenerationDto.getBirthplaceCode( )
+                : this.getRandomBirthplaceCode( birthdateForGeo );
+
+        // Resolve names: new prefix format or legacy pattern format
+        final String randomSuffix = generateRandomString( RANDOM_SUFFIX_LENGTH );
+        final String firstName;
+        final String familyName;
+        if ( isNotBlank( accountGenerationDto.getFirstNamePrefix( ) ) )
+        {
+            firstName = accountGenerationDto.getFirstNamePrefix( ) + "-" + randomSuffix;
+        }
+        else
+        {
+            firstName = this.getRandomAttribute( Constants.PARAM_FIRST_NAME, accountGenerationDto, iteration, " " );
+        }
+        if ( isNotBlank( accountGenerationDto.getFamilyNamePrefix( ) ) )
+        {
+            familyName = accountGenerationDto.getFamilyNamePrefix( ) + "-" + randomSuffix;
+        }
+        else
+        {
+            familyName = this.getRandomAttribute( Constants.PARAM_FAMILY_NAME, accountGenerationDto, iteration, " " );
+        }
+
+        // Build login attribute value
+        final String loginValue;
+        if ( isNotBlank( accountGenerationDto.getLoginPrefix( ) ) && isNotBlank( accountGenerationDto.getLoginSuffix( ) ) )
+        {
+            loginValue = mail;
+        }
+        else
+        {
+            loginValue = this.getRandomAttribute( Constants.PARAM_LOGIN, accountGenerationDto, iteration, "-" );
+        }
+
+        // Build identity attributes
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_GENDER, this.getRandomGender( ), effectiveGenderCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_FIRST_NAME, firstName, effectiveFirstNameCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_FAMILY_NAME, familyName, effectiveFamilyNameCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_BIRTH_DATE, birthdateValue, effectiveBirthdateCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_BIRTH_COUNTRY_CODE, effectiveBirthCountryCode, effectiveBirthCountryCodeCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_BIRTH_PLACE_CODE, effectiveBirthplaceCode, effectiveBirthplaceCodeCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_EMAIL, mail, effectiveMailCertifier, generationDate ) );
+        identityDto.getAttributes( ).add( this.buildAttribute( Constants.PARAM_LOGIN, loginValue, effectiveLoginCertifier, generationDate ) );
 
         identityChangeRequest.setIdentity( identityDto );
 
@@ -317,12 +397,22 @@ public class IdentityAccountGeneratorService
     private String toLetters( int iteration )
     {
         final String strValue = String.valueOf( iteration );
-        String strReturn = "";
+        StringBuilder strReturn = new StringBuilder( );
         for ( int i = 0; i < strValue.length( ); i++ )
         {
-            strReturn = strReturn.concat( alphabet.get( i ) );
+            strReturn.append( RANDOM_CHARS.charAt( i ) );
         }
-        return strReturn;
+        return strReturn.toString( );
+    }
+
+    private String generateRandomString( int length )
+    {
+        final StringBuilder sb = new StringBuilder( length );
+        for ( int i = 0; i < length; i++ )
+        {
+            sb.append( RANDOM_CHARS.charAt( random.nextInt( RANDOM_CHARS.length( ) ) ) );
+        }
+        return sb.toString( );
     }
 
     private String getRandomGender( )
@@ -364,5 +454,10 @@ public class IdentityAccountGeneratorService
     public Date addDays( final Date date, final int amount )
     {
         return this.add( date, Calendar.DAY_OF_MONTH, amount );
+    }
+
+    private static boolean isNotBlank( final String value )
+    {
+        return value != null && !value.trim( ).isEmpty( );
     }
 }

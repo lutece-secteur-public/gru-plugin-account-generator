@@ -63,10 +63,19 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
 
     // Parameters
     private static final String PARAMETER_GENERATE_ACCOUNT = "generate_account";
-    private static final String PARAMETER_GENERATION_PATTERN = "generation_pattern";
     private static final String PARAMETER_GENERATION_INCREMENT_OFFSET = "generation_increment_offset";
     private static final String PARAMETER_NB_DAYS_OF_VALIDITY = "nb_days_of_validity";
     private static final String PARAMETER_BATCH_SIZE = "batch_size";
+    private static final String PARAMETER_LOGIN_PREFIX = "login_prefix";
+    private static final String PARAMETER_LOGIN_SUFFIX = "login_suffix";
+    private static final String PARAMETER_PASSWORD = "password";
+    private static final String PARAMETER_FIRST_NAME_PREFIX = "first_name_prefix";
+    private static final String PARAMETER_FAMILY_NAME_PREFIX = "family_name_prefix";
+    private static final String PARAMETER_BIRTHDATE = "birthdate";
+    private static final String PARAMETER_BIRTH_COUNTRY_CODE = "birth_country_code";
+    private static final String PARAMETER_BIRTHPLACE_CODE = "birthplace_code";
+    private static final String PARAMETER_IDENTITY_CERTIFIER = "identity_certifier";
+    private static final String PARAMETER_MAIL_LOGIN_CERTIFIER = "mail_login_certifier";
 
     // Properties
     private static final String PROPERTY_PAGE_TITLE = "accountgenerator.generate_accounts.pageTitle";
@@ -139,12 +148,23 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         }
 
         final String strGenerateAccount = request.getParameter( PARAMETER_GENERATE_ACCOUNT );
-        final String strPattern = request.getParameter( PARAMETER_GENERATION_PATTERN );
         final String strOffset = request.getParameter( PARAMETER_GENERATION_INCREMENT_OFFSET );
         final String strNbDays = request.getParameter( PARAMETER_NB_DAYS_OF_VALIDITY );
         final String strBatchSize = request.getParameter( PARAMETER_BATCH_SIZE );
+        final String strLoginPrefix = request.getParameter( PARAMETER_LOGIN_PREFIX );
+        final String strLoginSuffix = request.getParameter( PARAMETER_LOGIN_SUFFIX );
+        final String strPassword = request.getParameter( PARAMETER_PASSWORD );
+        final String strFirstNamePrefix = request.getParameter( PARAMETER_FIRST_NAME_PREFIX );
+        final String strFamilyNamePrefix = request.getParameter( PARAMETER_FAMILY_NAME_PREFIX );
+        final String strBirthdate = request.getParameter( PARAMETER_BIRTHDATE );
+        final String strBirthCountryCode = request.getParameter( PARAMETER_BIRTH_COUNTRY_CODE );
+        final String strBirthplaceCode = request.getParameter( PARAMETER_BIRTHPLACE_CODE );
+        final String strIdentityCertifier = request.getParameter( PARAMETER_IDENTITY_CERTIFIER );
+        final String strMailLoginCertifier = request.getParameter( PARAMETER_MAIL_LOGIN_CERTIFIER );
 
-        if ( strPattern == null || strPattern.trim( ).isEmpty( ) || strOffset == null || strNbDays == null || strBatchSize == null )
+        if ( strOffset == null || strNbDays == null || strBatchSize == null
+                || strLoginPrefix == null || strLoginPrefix.trim( ).isEmpty( )
+                || strLoginSuffix == null || strLoginSuffix.trim( ).isEmpty( ) )
         {
             addError( ERROR_INVALID_PARAMETERS, getLocale( ) );
             return redirectView( request, VIEW_GENERATE_ACCOUNTS );
@@ -154,9 +174,43 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         {
             final AccountGenerationDto accountGenerationDto = new AccountGenerationDto( );
             accountGenerationDto.setGenerateAccount( "on".equals( strGenerateAccount ) || "true".equals( strGenerateAccount ) );
-            accountGenerationDto.setGenerationPattern( strPattern.trim( ) );
             accountGenerationDto.setGenerationIncrementOffset( Integer.parseInt( strOffset ) );
             accountGenerationDto.setNbDaysOfValidity( Integer.parseInt( strNbDays ) );
+            accountGenerationDto.setLoginPrefix( strLoginPrefix.trim( ) );
+            accountGenerationDto.setLoginSuffix( strLoginSuffix.trim( ) );
+
+            if ( strPassword != null && !strPassword.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setPassword( strPassword.trim( ) );
+            }
+            if ( strFirstNamePrefix != null && !strFirstNamePrefix.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setFirstNamePrefix( strFirstNamePrefix.trim( ) );
+            }
+            if ( strFamilyNamePrefix != null && !strFamilyNamePrefix.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setFamilyNamePrefix( strFamilyNamePrefix.trim( ) );
+            }
+            if ( strBirthdate != null && !strBirthdate.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setBirthdate( strBirthdate.trim( ) );
+            }
+            if ( strBirthCountryCode != null && !strBirthCountryCode.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setBirthCountryCode( strBirthCountryCode.trim( ) );
+            }
+            if ( strBirthplaceCode != null && !strBirthplaceCode.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setBirthplaceCode( strBirthplaceCode.trim( ) );
+            }
+            if ( strIdentityCertifier != null && !strIdentityCertifier.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setIdentityCertifier( strIdentityCertifier.trim( ) );
+            }
+            if ( strMailLoginCertifier != null && !strMailLoginCertifier.trim( ).isEmpty( ) )
+            {
+                accountGenerationDto.setMailLoginCertifier( strMailLoginCertifier.trim( ) );
+            }
 
             final int batchSize = Math.min( Integer.parseInt( strBatchSize ), GENERATION_LIMIT );
             accountGenerationDto.setBatchSize( batchSize );
