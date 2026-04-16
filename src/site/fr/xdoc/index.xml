@@ -4,27 +4,292 @@
         <title>Plugin accountgenerator</title>
     </properties>
     <head>
-        <!-- Keywords example : "cms, authentication, cms, workflow, seo, collaborative, ..." 
-             Use the language of this xdoc -->
-        <meta name="keywords" content="" />
+        <meta name="keywords" content="identite,compte,generation,monparis,gru,batch,purge,test" />
     </head>
     <body>
         <section name="Plugin accountgenerator">
-            <!--
-            <p>
-                <img src="images/accountgenerator.png" />
-            </p>
-            -->
             <subsection name="Introduction">
-                <p></p>
+                <p>
+                    Le plugin <code>plugin-accountgenerator</code> permet la cr&#233;ation automatis&#233;e en lot et la gestion du cycle de vie
+                    des identit&#233;s et des comptes MonParis. Il est destin&#233; aux environnements de test et de pr&#233;-production
+                    pour g&#233;n&#233;rer rapidement des donn&#233;es utilisateurs r&#233;alistes avec des attributs certifi&#233;s
+                    (nom, date de naissance, genre, email, lieu de naissance, etc.).
+                </p>
+                <p>
+                    Le plugin propose deux moyens de d&#233;clencher la g&#233;n&#233;ration de comptes :
+                </p>
+                <ul>
+                    <li>Une <b>API REST</b> pour une int&#233;gration programmatique ou via des outils externes.</li>
+                    <li>Une <b>fonctionnalit&#233; d'administration Back Office</b> avec un formulaire pour lancer la g&#233;n&#233;ration directement depuis l'interface d'administration Lutece.</li>
+                </ul>
+                <p>
+                    Les comptes g&#233;n&#233;r&#233;s sont enregistr&#233;s dans une table de base de donn&#233;es avec une date d'expiration.
+                    Un daemon configurable purge automatiquement les comptes expir&#233;s ainsi que les identit&#233;s et comptes MonParis
+                    associ&#233;s via les API externes.
+                </p>
+                <p>
+                    Le plugin s'int&#232;gre avec trois API externes :
+                </p>
+                <ul>
+                    <li><b>API IdentityStore</b> - pour cr&#233;er et supprimer des identit&#233;s avec des attributs certifi&#233;s.</li>
+                    <li><b>API AccountManagement</b> - pour cr&#233;er, valider et supprimer des comptes MonParis.</li>
+                    <li><b>API Geocodes</b> - pour r&#233;cup&#233;rer les codes communes valides pour les attributs de lieu de naissance (avec cache).</li>
+                </ul>
             </subsection>
             <subsection name="Configuration">
-                <p></p>
+                <p><b>Propri&#233;t&#233;s</b></p>
+                <p>
+                    Le fichier <code>accountgenerator.properties</code> dans <code>webapp/WEB-INF/conf/plugins/</code> contient
+                    toutes les propri&#233;t&#233;s configurables :
+                </p>
+                <table>
+                    <tr>
+                        <th>Propri&#233;t&#233;</th>
+                        <th>Valeur par d&#233;faut</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identitystore.ApiEndPointUrl</code></td>
+                        <td>http://localhost:8080</td>
+                        <td>URL de base de l'API IdentityStore</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.ApiEndPointUrl</code></td>
+                        <td>http://localhost:9080</td>
+                        <td>URL de base de l'API AccountManagement</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.path</code></td>
+                        <td>/site-openam/rest/openam/api/1</td>
+                        <td>Chemin de l'API AccountManagement</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-code</code></td>
+                        <td>TEST</td>
+                        <td>Code client pour les appels &#224; l'API IdentityStore</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-name</code></td>
+                        <td>AccountGenerator</td>
+                        <td>Nom du client pour les appels &#224; l'API IdentityStore</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-id</code></td>
+                        <td>test</td>
+                        <td>Identifiant client pour l'API AccountManagement</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.secret-id</code></td>
+                        <td>test</td>
+                        <td>Secret client pour l'API AccountManagement</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.geocodes.city.codes.endpoint</code></td>
+                        <td>http://localhost:8080/rest/geocodes/api/v1/cities/codes</td>
+                        <td>Endpoint de l'API Geocodes pour les codes communes</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.limit</code></td>
+                        <td>50</td>
+                        <td>Nombre maximum de comptes par requ&#234;te de g&#233;n&#233;ration</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.password</code></td>
+                        <td>password123456789</td>
+                        <td>Mot de passe commun attribu&#233; &#224; tous les comptes g&#233;n&#233;r&#233;s</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.mail.suffix</code></td>
+                        <td>@paris.test.fr</td>
+                        <td>Suffixe email pour les comptes g&#233;n&#233;r&#233;s</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.certifier.*</code></td>
+                        <td>fccertifier</td>
+                        <td>Code du certificateur pour chaque attribut d'identit&#233; (first_name, family-name, birthplace_code, birthcountry_code, gender, birthdate, email, login)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.birthcountry_code</code></td>
+                        <td>99100</td>
+                        <td>Code pays de naissance (99100 = France)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.year</code></td>
+                        <td>2000</td>
+                        <td>Ann&#233;e maximale pour la g&#233;n&#233;ration al&#233;atoire de la date de naissance</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.month</code></td>
+                        <td>12</td>
+                        <td>Mois maximum pour la g&#233;n&#233;ration al&#233;atoire de la date de naissance</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.day</code></td>
+                        <td>31</td>
+                        <td>Jour maximum pour la g&#233;n&#233;ration al&#233;atoire de la date de naissance</td>
+                    </tr>
+                </table>
+
+                <p><b>Beans Spring</b></p>
+                <p>
+                    Le contexte Spring est d&#233;fini dans <code>accountgenerator_context.xml</code>. Les beans suivants sont d&#233;clar&#233;s :
+                </p>
+                <table>
+                    <tr>
+                        <th>ID du bean</th>
+                        <th>Classe</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identityService</code></td>
+                        <td>IdentityService</td>
+                        <td>Service client pour l'API IdentityStore</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagementService</code></td>
+                        <td>AccountManagementService</td>
+                        <td>Service client pour l'API AccountManagement</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.geocodesCache</code></td>
+                        <td>GeocodesCache</td>
+                        <td>Service de cache pour les codes communes de l'API Geocodes</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountDao</code></td>
+                        <td>IdentityAccountDao</td>
+                        <td>DAO pour la table accountgenerator_account</td>
+                    </tr>
+                </table>
+
+                <p><b>Daemons</b></p>
+                <p>
+                    Le plugin d&#233;clare un daemon :
+                </p>
+                <table>
+                    <tr>
+                        <th>ID du daemon</th>
+                        <th>Classe</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>purgeExpiratedIdentityAccountsDaemons</code></td>
+                        <td>PurgeExpiratedIdentityAccountsDaemons</td>
+                        <td>Purge p&#233;riodiquement les comptes g&#233;n&#233;r&#233;s expir&#233;s ainsi que les identit&#233;s associ&#233;es en appelant les API IdentityStore et AccountManagement.</td>
+                    </tr>
+                </table>
+
+                <p><b>Caches</b></p>
+                <table>
+                    <tr>
+                        <th>Nom du cache</th>
+                        <th>Classe</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGeneratorGeocodesCache</code></td>
+                        <td>GeocodesCache</td>
+                        <td>Met en cache les codes communes r&#233;cup&#233;r&#233;s depuis l'API Geocodes, index&#233;s par date de r&#233;f&#233;rence. &#201;vite les appels HTTP r&#233;p&#233;t&#233;s pour la g&#233;n&#233;ration des codes de lieu de naissance.</td>
+                    </tr>
+                </table>
             </subsection>
             <subsection name="Usage">
-                <p></p>
+                <p><b>Droits d'administration</b></p>
+                <table>
+                    <tr>
+                        <th>Cl&#233; du droit</th>
+                        <th>Description</th>
+                        <th>URL d'administration</th>
+                    </tr>
+                    <tr>
+                        <td><code>ACCOUNTGENERATOR_MANAGEMENT</code></td>
+                        <td>Droit d'acc&#232;s &#224; la fonctionnalit&#233; de g&#233;n&#233;ration de comptes en Back Office</td>
+                        <td>jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp</td>
+                    </tr>
+                </table>
+
+                <p><b>Services</b></p>
+                <table>
+                    <tr>
+                        <th>Service</th>
+                        <th>M&#233;thode</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountGeneratorService</code></td>
+                        <td><code>createIdentityAccountBatch(AccountGenerationDto)</code></td>
+                        <td>Cr&#233;e un lot d'identit&#233;s avec des attributs certifi&#233;s al&#233;atoires et cr&#233;e optionnellement des comptes MonParis associ&#233;s. Retourne une liste de GeneratedAccountDto contenant email, mot de passe, cuid, guid et messages de statut pour chaque compte.</td>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountPurgeService</code></td>
+                        <td><code>purge()</code></td>
+                        <td>Charge les comptes expir&#233;s depuis la base de donn&#233;es et supprime les comptes MonParis et identit&#233;s associ&#233;s via les API externes. Retourne des statistiques de purge.</td>
+                    </tr>
+                </table>
+
+                <p><b>API REST</b></p>
+                <table>
+                    <tr>
+                        <th>Verbe HTTP</th>
+                        <th>Chemin</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td><code>/rest/identitystore/api/v3/account/generator</code></td>
+                        <td>G&#233;n&#233;rer un lot d'identit&#233;s et/ou de comptes MonParis</td>
+                    </tr>
+                </table>
+                <p>
+                    <b>En-t&#234;tes de la requ&#234;te :</b>
+                </p>
+                <ul>
+                    <li><code>X-Client-Code</code> - code de l'application cliente</li>
+                    <li><code>X-Author-Name</code> - nom de l'auteur</li>
+                    <li><code>X-Author-Type</code> - type de l'auteur</li>
+                    <li><code>X-Application-Code</code> - code de l'application</li>
+                </ul>
+                <p>
+                    <b>Corps de la requ&#234;te (JSON) :</b>
+                </p>
+                <table>
+                    <tr>
+                        <th>Champ</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generateAccount</code></td>
+                        <td>boolean</td>
+                        <td>Indique s'il faut &#233;galement cr&#233;er un compte MonParis pour chaque identit&#233;</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generationPattern</code></td>
+                        <td>string</td>
+                        <td>Motif utilis&#233; dans les valeurs des attributs g&#233;n&#233;r&#233;s (email, noms)</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generationIncrementOffset</code></td>
+                        <td>integer</td>
+                        <td>Offset ajout&#233; au compteur d'it&#233;ration pour la g&#233;n&#233;ration des attributs</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.nbDaysOfValidity</code></td>
+                        <td>integer</td>
+                        <td>Nombre de jours avant l'expiration des comptes g&#233;n&#233;r&#233;s</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.batchSize</code></td>
+                        <td>integer</td>
+                        <td>Nombre d'identit&#233;s/comptes &#224; g&#233;n&#233;rer (plafonn&#233; par la propri&#233;t&#233; generation.limit)</td>
+                    </tr>
+                </table>
+                <p>
+                    <b>Corps de la r&#233;ponse (JSON) :</b> Un objet <code>AccountGenerationResponse</code> contenant une liste
+                    <code>generated_accounts</code>. Chaque entr&#233;e comprend <code>email</code>, <code>password</code>,
+                    <code>cuid</code>, <code>guid</code>, et une liste <code>status</code> de messages. La r&#233;ponse est synchrone.
+                </p>
             </subsection>
         </section>
     </body>
 </document>
-

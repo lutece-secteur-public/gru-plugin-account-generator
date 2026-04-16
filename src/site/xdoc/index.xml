@@ -4,27 +4,290 @@
         <title>Plugin accountgenerator</title>
     </properties>
     <head>
-        <!-- Keywords example : "cms, authentication, cms, workflow, seo, collaborative, ..." 
-             Use the language of this xdoc -->
-        <meta name="keywords" content="" />
+        <meta name="keywords" content="identity,account,generation,monparis,gru,batch,purge,test" />
     </head>
     <body>
         <section name="Plugin accountgenerator">
-            <!--
-            <p>
-                <img src="images/accountgenerator.png" />
-            </p>
-            -->
             <subsection name="Introduction">
-                <p></p>
+                <p>
+                    The <code>plugin-accountgenerator</code> plugin provides automated batch creation and lifecycle management
+                    of user identities and MonParis accounts. It is designed for test and pre-production environments to quickly
+                    generate realistic user data with certified attributes (name, birthdate, gender, email, birthplace, etc.).
+                </p>
+                <p>
+                    The plugin offers two ways to trigger account generation:
+                </p>
+                <ul>
+                    <li>A <b>REST API</b> endpoint for programmatic or external tool integration.</li>
+                    <li>A <b>Back Office admin feature</b> with a form to launch generation directly from the Lutece administration interface.</li>
+                </ul>
+                <p>
+                    Generated accounts are tracked in a database table with an expiration date. A configurable daemon
+                    automatically purges expired accounts and their associated identities and MonParis accounts via external APIs.
+                </p>
+                <p>
+                    The plugin integrates with three external APIs:
+                </p>
+                <ul>
+                    <li><b>IdentityStore API</b> - to create and delete identities with certified attributes.</li>
+                    <li><b>AccountManagement API</b> - to create, validate, and delete MonParis accounts.</li>
+                    <li><b>Geocodes API</b> - to fetch valid city codes for birthplace attributes (cached).</li>
+                </ul>
             </subsection>
             <subsection name="Configuration">
-                <p></p>
+                <p><b>Properties</b></p>
+                <p>
+                    The file <code>accountgenerator.properties</code> in <code>webapp/WEB-INF/conf/plugins/</code> contains
+                    all configurable properties:
+                </p>
+                <table>
+                    <tr>
+                        <th>Property</th>
+                        <th>Default value</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identitystore.ApiEndPointUrl</code></td>
+                        <td>http://localhost:8080</td>
+                        <td>IdentityStore API base URL</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.ApiEndPointUrl</code></td>
+                        <td>http://localhost:9080</td>
+                        <td>AccountManagement API base URL</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.path</code></td>
+                        <td>/site-openam/rest/openam/api/1</td>
+                        <td>AccountManagement API path</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-code</code></td>
+                        <td>TEST</td>
+                        <td>Client code for IdentityStore API calls</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-name</code></td>
+                        <td>AccountGenerator</td>
+                        <td>Client name for IdentityStore API calls</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.client-id</code></td>
+                        <td>test</td>
+                        <td>Client ID for AccountManagement API</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagement.secret-id</code></td>
+                        <td>test</td>
+                        <td>Client secret for AccountManagement API</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.geocodes.city.codes.endpoint</code></td>
+                        <td>http://localhost:8080/rest/geocodes/api/v1/cities/codes</td>
+                        <td>Geocodes API endpoint for city codes</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.limit</code></td>
+                        <td>50</td>
+                        <td>Maximum number of accounts per generation request</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.password</code></td>
+                        <td>password123456789</td>
+                        <td>Common password assigned to all generated accounts</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.mail.suffix</code></td>
+                        <td>@paris.test.fr</td>
+                        <td>Email suffix for generated accounts</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.certifier.*</code></td>
+                        <td>fccertifier</td>
+                        <td>Certifier code for each identity attribute (first_name, family-name, birthplace_code, birthcountry_code, gender, birthdate, email, login)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.birthcountry_code</code></td>
+                        <td>99100</td>
+                        <td>Birth country code (99100 = France)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.year</code></td>
+                        <td>2000</td>
+                        <td>Maximum year for random birthdate generation</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.month</code></td>
+                        <td>12</td>
+                        <td>Maximum month for random birthdate generation</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.value.max.birthdate.day</code></td>
+                        <td>31</td>
+                        <td>Maximum day for random birthdate generation</td>
+                    </tr>
+                </table>
+
+                <p><b>Spring Beans</b></p>
+                <p>
+                    The Spring context is defined in <code>accountgenerator_context.xml</code>. The following beans are declared:
+                </p>
+                <table>
+                    <tr>
+                        <th>Bean ID</th>
+                        <th>Class</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identityService</code></td>
+                        <td>IdentityService</td>
+                        <td>Client service for the IdentityStore API</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountManagementService</code></td>
+                        <td>AccountManagementService</td>
+                        <td>Client service for the AccountManagement API</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.geocodesCache</code></td>
+                        <td>GeocodesCache</td>
+                        <td>Cache service for city codes from the Geocodes API</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.accountDao</code></td>
+                        <td>IdentityAccountDao</td>
+                        <td>DAO for the accountgenerator_account table</td>
+                    </tr>
+                </table>
+
+                <p><b>Daemons</b></p>
+                <p>
+                    The plugin declares one daemon:
+                </p>
+                <table>
+                    <tr>
+                        <th>Daemon ID</th>
+                        <th>Class</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>purgeExpiratedIdentityAccountsDaemons</code></td>
+                        <td>PurgeExpiratedIdentityAccountsDaemons</td>
+                        <td>Periodically purges expired generated accounts and their associated identities by calling the IdentityStore and AccountManagement APIs.</td>
+                    </tr>
+                </table>
+
+                <p><b>Caches</b></p>
+                <table>
+                    <tr>
+                        <th>Cache name</th>
+                        <th>Class</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGeneratorGeocodesCache</code></td>
+                        <td>GeocodesCache</td>
+                        <td>Caches city codes fetched from the Geocodes API, keyed by date reference. Avoids repeated HTTP calls for birthplace code generation.</td>
+                    </tr>
+                </table>
             </subsection>
             <subsection name="Usage">
-                <p></p>
+                <p><b>Admin Rights</b></p>
+                <table>
+                    <tr>
+                        <th>Right key</th>
+                        <th>Description</th>
+                        <th>Admin URL</th>
+                    </tr>
+                    <tr>
+                        <td><code>ACCOUNTGENERATOR_MANAGEMENT</code></td>
+                        <td>Right to access the account generation back office feature</td>
+                        <td>jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp</td>
+                    </tr>
+                </table>
+
+                <p><b>Services</b></p>
+                <table>
+                    <tr>
+                        <th>Service</th>
+                        <th>Method</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountGeneratorService</code></td>
+                        <td><code>createIdentityAccountBatch(AccountGenerationDto)</code></td>
+                        <td>Creates a batch of identities with random certified attributes and optionally creates associated MonParis accounts. Returns a list of GeneratedAccountDto with email, password, cuid, guid, and status messages for each account.</td>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountPurgeService</code></td>
+                        <td><code>purge()</code></td>
+                        <td>Loads expired accounts from the database and deletes associated MonParis accounts and identities via external APIs. Returns purge statistics.</td>
+                    </tr>
+                </table>
+
+                <p><b>REST API</b></p>
+                <table>
+                    <tr>
+                        <th>HTTP verb</th>
+                        <th>Path</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td><code>/rest/identitystore/api/v3/account/generator</code></td>
+                        <td>Generate a batch of identities and/or MonParis accounts</td>
+                    </tr>
+                </table>
+                <p>
+                    <b>Request headers:</b>
+                </p>
+                <ul>
+                    <li><code>X-Client-Code</code> - client application code</li>
+                    <li><code>X-Author-Name</code> - author name</li>
+                    <li><code>X-Author-Type</code> - author type</li>
+                    <li><code>X-Application-Code</code> - application code</li>
+                </ul>
+                <p>
+                    <b>Request body (JSON):</b>
+                </p>
+                <table>
+                    <tr>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generateAccount</code></td>
+                        <td>boolean</td>
+                        <td>Whether to also create a MonParis account for each identity</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generationPattern</code></td>
+                        <td>string</td>
+                        <td>Pattern used in generated attribute values (email, names)</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.generationIncrementOffset</code></td>
+                        <td>integer</td>
+                        <td>Offset added to the iteration counter for attribute generation</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.nbDaysOfValidity</code></td>
+                        <td>integer</td>
+                        <td>Number of days before the generated accounts expire</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.batchSize</code></td>
+                        <td>integer</td>
+                        <td>Number of identities/accounts to generate (capped by generation.limit property)</td>
+                    </tr>
+                </table>
+                <p>
+                    <b>Response body (JSON):</b> An <code>AccountGenerationResponse</code> containing a <code>generated_accounts</code>
+                    list. Each entry includes <code>email</code>, <code>password</code>, <code>cuid</code>, <code>guid</code>,
+                    and a <code>status</code> list of messages. The response is synchronous.
+                </p>
             </subsection>
         </section>
     </body>
 </document>
-
