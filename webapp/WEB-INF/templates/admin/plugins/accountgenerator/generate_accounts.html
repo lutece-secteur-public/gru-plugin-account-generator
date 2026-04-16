@@ -1,0 +1,89 @@
+<@box>
+    <@boxHeader>
+        <@boxTitle>#i18n{accountgenerator.generate_accounts.title}</@boxTitle>
+    </@boxHeader>
+    <@boxBody>
+        <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp">
+            <input type="hidden" name="action" value="doGenerateAccounts" />
+            <input type="hidden" name="token" value="${token}" />
+
+            <@row>
+                <@columns sm=6>
+                    <@formGroup labelKey="#i18n{accountgenerator.generate_accounts.labelGenerationPattern}" mandatory=true>
+                        <@input type="text" name="generation_pattern" id="generation_pattern" value="" mandatory=true />
+                    </@formGroup>
+                </@columns>
+                <@columns sm=6>
+                    <@formGroup labelKey="#i18n{accountgenerator.generate_accounts.labelBatchSize}" mandatory=true helpKey="#i18n{accountgenerator.generate_accounts.helpBatchSize} ${generation_limit}">
+                        <@input type="number" name="batch_size" id="batch_size" value="5" min=1 max=generation_limit mandatory=true />
+                    </@formGroup>
+                </@columns>
+            </@row>
+            <@row>
+                <@columns sm=6>
+                    <@formGroup labelKey="#i18n{accountgenerator.generate_accounts.labelGenerationIncrementOffset}" mandatory=true>
+                        <@input type="number" name="generation_increment_offset" id="generation_increment_offset" value="0" min=0 mandatory=true />
+                    </@formGroup>
+                </@columns>
+                <@columns sm=6>
+                    <@formGroup labelKey="#i18n{accountgenerator.generate_accounts.labelNbDaysOfValidity}" mandatory=true>
+                        <@input type="number" name="nb_days_of_validity" id="nb_days_of_validity" value="300" min=1 mandatory=true />
+                    </@formGroup>
+                </@columns>
+            </@row>
+            <@row>
+                <@columns sm=6>
+                    <@formGroup labelKey="#i18n{accountgenerator.generate_accounts.labelGenerateAccount}">
+                        <@checkBox name="generate_account" id="generate_account" checked=true labelKey="#i18n{accountgenerator.generate_accounts.helpGenerateAccount}" />
+                    </@formGroup>
+                </@columns>
+            </@row>
+
+            <@actionButtons>
+                <@actionButton title="#i18n{accountgenerator.generate_accounts.buttonGenerate}" color="primary" type="submit" />
+            </@actionButtons>
+        </form>
+    </@boxBody>
+</@box>
+
+<#if generated_accounts?? && (generated_accounts?size > 0)>
+<@box color="success">
+    <@boxHeader>
+        <@boxTitle>#i18n{accountgenerator.generate_accounts.resultTitle}</@boxTitle>
+    </@boxHeader>
+    <@boxBody>
+        <#if generation_message??>
+            <div class="alert alert-info">${generation_message}</div>
+        </#if>
+
+        <@table>
+            <tr>
+                <th>#</th>
+                <th>#i18n{accountgenerator.generate_accounts.columnEmail}</th>
+                <th>#i18n{accountgenerator.generate_accounts.columnPassword}</th>
+                <th>#i18n{accountgenerator.generate_accounts.columnCuid}</th>
+                <th>#i18n{accountgenerator.generate_accounts.columnGuid}</th>
+                <th>#i18n{accountgenerator.generate_accounts.columnStatus}</th>
+            </tr>
+            <#list generated_accounts as account>
+            <tr>
+                <td>${account_index + 1}</td>
+                <td>${account.email!""}</td>
+                <td>${account.password!""}</td>
+                <td>${account.cuid!""}</td>
+                <td>${account.guid!""}</td>
+                <td>
+                    <#if account.status?? && (account.status?size > 0)>
+                        <#list account.status as statusMsg>
+                            <span class="badge badge-<#if account.hasIdentity()>info<#else>warning</#if>">${statusMsg}</span><br/>
+                        </#list>
+                    <#else>
+                        <span class="badge badge-success">OK</span>
+                    </#if>
+                </td>
+            </tr>
+            </#list>
+        </@table>
+    </@boxBody>
+</@box>
+</#if>
