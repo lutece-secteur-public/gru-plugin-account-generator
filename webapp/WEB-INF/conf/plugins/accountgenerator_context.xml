@@ -11,9 +11,15 @@
     <bean id="accountgenerator.accountDao" class="fr.paris.lutece.plugins.accountgenerator.business.IdentityAccountDao" />
 
     <!-- IHttpTransportProvider declarations -->
-    <bean id="accountgenerator.identitystore.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpAccessTransport" >
+    <bean id="accountgenerator.identitystore.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpApiManagerAccessTransport" >
         <property name="ApiEndPointUrl">
             <value>${accountgenerator.identitystore.ApiEndPointUrl}</value>
+        </property>
+        <property name="AccessManagerEndPointUrl">
+            <value>${accountgenerator.identitystore.accessManagerEndPointUrl}</value>
+        </property>
+        <property name="AccessManagerCredentials">
+            <value>${accountgenerator.identitystore.accessManagerCredentials}</value>
         </property>
     </bean>
 

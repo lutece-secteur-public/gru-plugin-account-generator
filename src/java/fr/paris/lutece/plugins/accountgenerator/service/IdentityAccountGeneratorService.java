@@ -212,7 +212,7 @@ public class IdentityAccountGeneratorService
                         final IdentityChangeResponse createIdentityResponse = _identityService.createIdentity( identityChange, identityStoreClientCode,
                                 author );
                         AppLogService.info( "Identity creation request:\n" + identityChange );
-                        if ( createIdentityResponse != null
+                        if ( createIdentityResponse != null && createIdentityResponse.getStatus() != null
                                 && createIdentityResponse.getStatus( ).getHttpCode( ) == ResponseStatusFactory.success( ).getHttpCode( ) )
                         {
                             account.setCuid( createIdentityResponse.getCustomerId( ) );
@@ -220,12 +220,14 @@ public class IdentityAccountGeneratorService
                         else
                         {
                             account.getStatus( ).add( "The API refused to create the identity:\n" + createIdentityResponse );
+                            AppLogService.error( "The API refused to create the identity:\n" + createIdentityResponse );
                             identityError = true;
                         }
                     }
                     catch( final IdentityStoreException e )
                     {
                         account.getStatus( ).add( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
+                        AppLogService.error( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
                         identityError = true;
                     }
 

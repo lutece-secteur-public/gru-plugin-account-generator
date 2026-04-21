@@ -100,9 +100,41 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String ERROR_GENERATION_FAILED = "accountgenerator.error.generation.failed";
     private static final String ERROR_INVALID_PARAMETERS = "accountgenerator.error.generation.invalidParameters";
 
+    // Markers for form field values
+    private static final String MARK_LOGIN_PREFIX = "login_prefix";
+    private static final String MARK_LOGIN_SUFFIX = "login_suffix";
+    private static final String MARK_GENERATION_INCREMENT_OFFSET = "generation_increment_offset";
+    private static final String MARK_BATCH_SIZE = "batch_size";
+    private static final String MARK_NB_DAYS_OF_VALIDITY = "nb_days_of_validity";
+    private static final String MARK_PASSWORD = "password";
+    private static final String MARK_FIRST_NAME_PREFIX = "first_name_prefix";
+    private static final String MARK_FAMILY_NAME_PREFIX = "family_name_prefix";
+    private static final String MARK_BIRTHDATE = "birthdate";
+    private static final String MARK_BIRTH_COUNTRY_CODE = "birth_country_code";
+    private static final String MARK_BIRTHPLACE_CODE = "birthplace_code";
+    private static final String MARK_IDENTITY_CERTIFIER = "identity_certifier";
+    private static final String MARK_MAIL_LOGIN_CERTIFIER = "mail_login_certifier";
+    private static final String MARK_GENERATE_ACCOUNT = "generate_account";
+
+    // Default values
+    private static final String DEFAULT_LOGIN_PREFIX = "testperfpf";
+    private static final String DEFAULT_LOGIN_SUFFIX = "@yopmail.com";
+    private static final String DEFAULT_GENERATION_INCREMENT_OFFSET = "0";
+    private static final String DEFAULT_BATCH_SIZE = "5";
+    private static final String DEFAULT_NB_DAYS_OF_VALIDITY = "300";
+    private static final String DEFAULT_PASSWORD = "Changeme1!";
+    private static final String DEFAULT_FIRST_NAME_PREFIX = "Prenom";
+    private static final String DEFAULT_FAMILY_NAME_PREFIX = "NOM";
+    private static final String DEFAULT_BIRTHDATE = "01/01/2000";
+    private static final String DEFAULT_BIRTH_COUNTRY_CODE = "99100";
+    private static final String DEFAULT_BIRTHPLACE_CODE = "75112";
+    private static final String DEFAULT_IDENTITY_CERTIFIER = "fccertifier";
+    private static final String DEFAULT_MAIL_LOGIN_CERTIFIER = "DEC";
+
     // Session state
     private transient List<GeneratedAccountDto> _generatedAccounts;
     private String _strGenerationMessage;
+    private Map<String, String> _lastFormValues;
 
     /**
      * Build the generate accounts form view
@@ -117,6 +149,22 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         Map<String, Object> model = getModel( );
         model.put( MARK_GENERATION_LIMIT, GENERATION_LIMIT );
 
+        // Populate form fields with last submitted values or defaults
+        model.put( MARK_LOGIN_PREFIX, getFormValue( MARK_LOGIN_PREFIX, DEFAULT_LOGIN_PREFIX ) );
+        model.put( MARK_LOGIN_SUFFIX, getFormValue( MARK_LOGIN_SUFFIX, DEFAULT_LOGIN_SUFFIX ) );
+        model.put( MARK_GENERATION_INCREMENT_OFFSET, getFormValue( MARK_GENERATION_INCREMENT_OFFSET, DEFAULT_GENERATION_INCREMENT_OFFSET ) );
+        model.put( MARK_BATCH_SIZE, getFormValue( MARK_BATCH_SIZE, DEFAULT_BATCH_SIZE ) );
+        model.put( MARK_NB_DAYS_OF_VALIDITY, getFormValue( MARK_NB_DAYS_OF_VALIDITY, DEFAULT_NB_DAYS_OF_VALIDITY ) );
+        model.put( MARK_PASSWORD, getFormValue( MARK_PASSWORD, DEFAULT_PASSWORD ) );
+        model.put( MARK_FIRST_NAME_PREFIX, getFormValue( MARK_FIRST_NAME_PREFIX, DEFAULT_FIRST_NAME_PREFIX ) );
+        model.put( MARK_FAMILY_NAME_PREFIX, getFormValue( MARK_FAMILY_NAME_PREFIX, DEFAULT_FAMILY_NAME_PREFIX ) );
+        model.put( MARK_BIRTHDATE, getFormValue( MARK_BIRTHDATE, DEFAULT_BIRTHDATE ) );
+        model.put( MARK_BIRTH_COUNTRY_CODE, getFormValue( MARK_BIRTH_COUNTRY_CODE, DEFAULT_BIRTH_COUNTRY_CODE ) );
+        model.put( MARK_BIRTHPLACE_CODE, getFormValue( MARK_BIRTHPLACE_CODE, DEFAULT_BIRTHPLACE_CODE ) );
+        model.put( MARK_IDENTITY_CERTIFIER, getFormValue( MARK_IDENTITY_CERTIFIER, DEFAULT_IDENTITY_CERTIFIER ) );
+        model.put( MARK_MAIL_LOGIN_CERTIFIER, getFormValue( MARK_MAIL_LOGIN_CERTIFIER, DEFAULT_MAIL_LOGIN_CERTIFIER ) );
+        model.put( MARK_GENERATE_ACCOUNT, _lastFormValues != null && _lastFormValues.containsKey( MARK_GENERATE_ACCOUNT ) );
+
         if ( _generatedAccounts != null )
         {
             model.put( MARK_GENERATED_ACCOUNTS, _generatedAccounts );
@@ -128,6 +176,15 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         model.put( SecurityTokenService.MARK_TOKEN, SecurityTokenService.getInstance( ).getToken( request, ACTION_GENERATE_ACCOUNTS ) );
 
         return getPage( PROPERTY_PAGE_TITLE, TEMPLATE_GENERATE_ACCOUNTS, model );
+    }
+
+    private String getFormValue( String key, String defaultValue )
+    {
+        if ( _lastFormValues != null && _lastFormValues.containsKey( key ) )
+        {
+            return _lastFormValues.get( key );
+        }
+        return defaultValue;
     }
 
     /**
@@ -161,6 +218,26 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         final String strBirthplaceCode = request.getParameter( PARAMETER_BIRTHPLACE_CODE );
         final String strIdentityCertifier = request.getParameter( PARAMETER_IDENTITY_CERTIFIER );
         final String strMailLoginCertifier = request.getParameter( PARAMETER_MAIL_LOGIN_CERTIFIER );
+
+        // Save form values for re-display after redirect
+        _lastFormValues = new java.util.HashMap<>( );
+        _lastFormValues.put( MARK_LOGIN_PREFIX, strLoginPrefix );
+        _lastFormValues.put( MARK_LOGIN_SUFFIX, strLoginSuffix );
+        _lastFormValues.put( MARK_GENERATION_INCREMENT_OFFSET, strOffset );
+        _lastFormValues.put( MARK_BATCH_SIZE, strBatchSize );
+        _lastFormValues.put( MARK_NB_DAYS_OF_VALIDITY, strNbDays );
+        _lastFormValues.put( MARK_PASSWORD, strPassword );
+        _lastFormValues.put( MARK_FIRST_NAME_PREFIX, strFirstNamePrefix );
+        _lastFormValues.put( MARK_FAMILY_NAME_PREFIX, strFamilyNamePrefix );
+        _lastFormValues.put( MARK_BIRTHDATE, strBirthdate );
+        _lastFormValues.put( MARK_BIRTH_COUNTRY_CODE, strBirthCountryCode );
+        _lastFormValues.put( MARK_BIRTHPLACE_CODE, strBirthplaceCode );
+        _lastFormValues.put( MARK_IDENTITY_CERTIFIER, strIdentityCertifier );
+        _lastFormValues.put( MARK_MAIL_LOGIN_CERTIFIER, strMailLoginCertifier );
+        if ( strGenerateAccount != null )
+        {
+            _lastFormValues.put( MARK_GENERATE_ACCOUNT, strGenerateAccount );
+        }
 
         if ( strOffset == null || strNbDays == null || strBatchSize == null
                 || strLoginPrefix == null || strLoginPrefix.trim( ).isEmpty( )

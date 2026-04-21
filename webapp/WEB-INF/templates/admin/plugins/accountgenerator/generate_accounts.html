@@ -9,17 +9,17 @@
             <@row>
                 <@columns sm=4>
                     <@formGroup labelFor='login_prefix' labelKey='#i18n{accountgenerator.generate_accounts.labelLoginPrefix}' mandatory=true helpKey='#i18n{accountgenerator.generate_accounts.helpLoginPrefix}'>
-                        <@input type='text' name='login_prefix' id='login_prefix' value='testperfpf' />
+                        <@input type='text' name='login_prefix' id='login_prefix' value='${login_prefix}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='generation_increment_offset' labelKey='#i18n{accountgenerator.generate_accounts.labelGenerationIncrementOffset}' mandatory=true>
-                        <@input type='number' name='generation_increment_offset' id='generation_increment_offset' value='0' />
+                        <@input type='number' name='generation_increment_offset' id='generation_increment_offset' value='${generation_increment_offset}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='login_suffix' labelKey='#i18n{accountgenerator.generate_accounts.labelLoginSuffix}' mandatory=true helpKey='#i18n{accountgenerator.generate_accounts.helpLoginSuffix}'>
-                        <@input type='text' name='login_suffix' id='login_suffix' value='@yopmail.com' />
+                        <@input type='text' name='login_suffix' id='login_suffix' value='${login_suffix}' />
                     </@formGroup>
                 </@columns>
             </@row>
@@ -28,29 +28,29 @@
             <@row>
                 <@columns sm=4>
                     <@formGroup labelFor='first_name_prefix' labelKey='#i18n{accountgenerator.generate_accounts.labelFirstNamePrefix}' helpKey='#i18n{accountgenerator.generate_accounts.helpFirstNamePrefix}'>
-                        <@input type='text' name='first_name_prefix' id='first_name_prefix' value='Prenom' />
+                        <@input type='text' name='first_name_prefix' id='first_name_prefix' value='${first_name_prefix}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='family_name_prefix' labelKey='#i18n{accountgenerator.generate_accounts.labelFamilyNamePrefix}' helpKey='#i18n{accountgenerator.generate_accounts.helpFamilyNamePrefix}'>
-                        <@input type='text' name='family_name_prefix' id='family_name_prefix' value='NOM' />
+                        <@input type='text' name='family_name_prefix' id='family_name_prefix' value='${family_name_prefix}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='birthdate' labelKey='#i18n{accountgenerator.generate_accounts.labelBirthdate}' helpKey='#i18n{accountgenerator.generate_accounts.helpBirthdate}'>
-                        <@input type='text' name='birthdate' id='birthdate' value='01/01/2000' />
+                        <@input type='text' name='birthdate' id='birthdate' value='${birthdate}' />
                     </@formGroup>
                 </@columns>
             </@row>
             <@row>
                 <@columns sm=4>
                     <@formGroup labelFor='birth_country_code' labelKey='#i18n{accountgenerator.generate_accounts.labelBirthCountryCode}' helpKey='#i18n{accountgenerator.generate_accounts.helpBirthCountryCode}'>
-                        <@input type='text' name='birth_country_code' id='birth_country_code' value='99100' />
+                        <@input type='text' name='birth_country_code' id='birth_country_code' value='${birth_country_code}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='birthplace_code' labelKey='#i18n{accountgenerator.generate_accounts.labelBirthplaceCode}' helpKey='#i18n{accountgenerator.generate_accounts.helpBirthplaceCode}'>
-                        <@input type='text' name='birthplace_code' id='birthplace_code' value='75012' />
+                        <@input type='text' name='birthplace_code' id='birthplace_code' value='${birthplace_code}' />
                     </@formGroup>
                 </@columns>
             </@row>
@@ -59,12 +59,12 @@
             <@row>
                 <@columns sm=6>
                     <@formGroup labelFor='identity_certifier' labelKey='#i18n{accountgenerator.generate_accounts.labelIdentityCertifier}' helpKey='#i18n{accountgenerator.generate_accounts.helpIdentityCertifier}'>
-                        <@input type='text' name='identity_certifier' id='identity_certifier' value='fccertifier' />
+                        <@input type='text' name='identity_certifier' id='identity_certifier' value='${identity_certifier}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=6>
                     <@formGroup labelFor='mail_login_certifier' labelKey='#i18n{accountgenerator.generate_accounts.labelMailLoginCertifier}' helpKey='#i18n{accountgenerator.generate_accounts.helpMailLoginCertifier}'>
-                        <@input type='text' name='mail_login_certifier' id='mail_login_certifier' value='mailcertifier' />
+                        <@input type='text' name='mail_login_certifier' id='mail_login_certifier' value='${mail_login_certifier}' />
                     </@formGroup>
                 </@columns>
             </@row>
@@ -73,23 +73,23 @@
             <@row>
                 <@columns sm=4>
                     <@formGroup labelFor='password' labelKey='#i18n{accountgenerator.generate_accounts.labelPassword}' helpKey='#i18n{accountgenerator.generate_accounts.helpPassword}'>
-                        <@input type='text' name='password' id='password' value='Changeme1!' />
+                        <@input type='text' name='password' id='password' value='${password}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='batch_size' labelKey='#i18n{accountgenerator.generate_accounts.labelBatchSize}' mandatory=true helpKey='#i18n{accountgenerator.generate_accounts.helpBatchSize} ${generation_limit}'>
-                        <@input type='number' name='batch_size' id='batch_size' value='5' />
+                        <@input type='number' name='batch_size' id='batch_size' value='${batch_size}' />
                     </@formGroup>
                 </@columns>
                 <@columns sm=4>
                     <@formGroup labelFor='nb_days_of_validity' labelKey='#i18n{accountgenerator.generate_accounts.labelNbDaysOfValidity}' mandatory=true>
-                        <@input type='number' name='nb_days_of_validity' id='nb_days_of_validity' value='300' />
+                        <@input type='number' name='nb_days_of_validity' id='nb_days_of_validity' value='${nb_days_of_validity}' />
                     </@formGroup>
                 </@columns>
             </@row>
             <@row>
                 <@columns sm=6>
-                    <@checkBox orientation='switch' name='generate_account' labelKey='#i18n{accountgenerator.generate_accounts.labelGenerateAccount}' checked=true params='#i18n{accountgenerator.generate_accounts.helpGenerateAccount}' />
+                    <@checkBox orientation='switch' name='generate_account' value='on' labelKey='#i18n{accountgenerator.generate_accounts.labelGenerateAccount}' checked=generate_account params='#i18n{accountgenerator.generate_accounts.helpGenerateAccount}' />
                 </@columns>
             </@row>
 
@@ -130,10 +130,10 @@
                 <@td>
                     <#if account.status?? && (account.status?size > 0)>
                         <#list account.status as statusMsg>
-                            <span class="badge badge-<#if account.hasIdentity()>info<#else>warning</#if>">${statusMsg}</span><br/>
+                            <span class="badge bg-<#if account.hasIdentity()>info<#else>warning</#if>">${statusMsg}</span><br/>
                         </#list>
                     <#else>
-                        <span class="badge badge-success">OK</span>
+                        <span class="badge bg-success">OK</span>
                     </#if>
                 </@td>
             </@tr>
