@@ -4,7 +4,7 @@
         <title>Plugin accountgenerator</title>
     </properties>
     <head>
-        <meta name="keywords" content="identite,compte,generation,monparis,gru,batch,purge,test" />
+        <meta name="keywords" content="identite,compte,generation,monparis,gru,batch,purge,test,job,async,progression" />
     </head>
     <body>
         <section name="Plugin accountgenerator">
@@ -16,11 +16,19 @@
                     (nom, date de naissance, genre, email, lieu de naissance, etc.).
                 </p>
                 <p>
-                    Le plugin propose deux moyens de d&#233;clencher la g&#233;n&#233;ration de comptes :
+                    Chaque demande de g&#233;n&#233;ration est persist&#233;e comme un <b>job</b> avec une r&#233;f&#233;rence
+                    (UUID). Les jobs sont trait&#233;s en asynchrone par un ex&#233;cuteur en arri&#232;re-plan afin que les lots
+                    importants (jusqu'&#224; 100&#160;000 comptes) ne bloquent pas l'appelant. La progression est expos&#233;e via le
+                    <code>ProgressManagerService</code> de Lutece ainsi que par un endpoint REST de consultation. Une fois le job
+                    termin&#233;, les donn&#233;es g&#233;n&#233;r&#233;es (email, mot de passe, CUID, GUID) sont mises &#224; disposition
+                    sous forme de fichier CSV t&#233;l&#233;chargeable.
+                </p>
+                <p>
+                    Deux moyens permettent de soumettre un job :
                 </p>
                 <ul>
-                    <li>Une <b>API REST</b> pour une int&#233;gration programmatique ou via des outils externes.</li>
-                    <li>Une <b>fonctionnalit&#233; d'administration Back Office</b> avec un formulaire pour lancer la g&#233;n&#233;ration directement depuis l'interface d'administration Lutece.</li>
+                    <li>Une <b>API REST</b> : <code>POST</code> pour soumettre un job, <code>GET</code> pour consulter son &#233;tat par r&#233;f&#233;rence.</li>
+                    <li>Une <b>fonctionnalit&#233; Back Office</b> avec trois vues (liste des jobs, formulaire de soumission, d&#233;tail du job avec barre de progression et lien de t&#233;l&#233;chargement).</li>
                 </ul>
                 <p>
                     Les comptes g&#233;n&#233;r&#233;s sont enregistr&#233;s dans une table de base de donn&#233;es avec une date d'expiration.
@@ -50,58 +58,98 @@
                     </tr>
                     <tr>
                         <td><code>accountgenerator.identitystore.ApiEndPointUrl</code></td>
-                        <td>http://localhost:8080</td>
+                        <td></td>
                         <td>URL de base de l'API IdentityStore</td>
                     </tr>
                     <tr>
+                        <td><code>accountgenerator.identitystore.accessManagerEndPointUrl</code></td>
+                        <td></td>
+                        <td>URL du gestionnaire d'acc&#232;s pour les appels IdentityStore</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identitystore.accessManagerCredentials</code></td>
+                        <td></td>
+                        <td>Identifiants du gestionnaire d'acc&#232;s pour les appels IdentityStore</td>
+                    </tr>
+                    <tr>
                         <td><code>accountgenerator.accountManagement.ApiEndPointUrl</code></td>
-                        <td>http://localhost:9080</td>
+                        <td></td>
                         <td>URL de base de l'API AccountManagement</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.path</code></td>
-                        <td>/site-openam/rest/openam/api/1</td>
+                        <td></td>
                         <td>Chemin de l'API AccountManagement</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-code</code></td>
-                        <td>TEST</td>
+                        <td></td>
                         <td>Code client pour les appels &#224; l'API IdentityStore</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-name</code></td>
-                        <td>AccountGenerator</td>
+                        <td></td>
                         <td>Nom du client pour les appels &#224; l'API IdentityStore</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-id</code></td>
-                        <td>test</td>
+                        <td></td>
                         <td>Identifiant client pour l'API AccountManagement</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.secret-id</code></td>
-                        <td>test</td>
+                        <td></td>
                         <td>Secret client pour l'API AccountManagement</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.geocodes.city.codes.endpoint</code></td>
-                        <td>http://localhost:8080/rest/geocodes/api/v1/cities/codes</td>
+                        <td></td>
                         <td>Endpoint de l'API Geocodes pour les codes communes</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.limit</code></td>
-                        <td>50</td>
-                        <td>Nombre maximum de comptes par requ&#234;te de g&#233;n&#233;ration</td>
+                        <td>100000</td>
+                        <td>Taille maximale de lot accept&#233;e par une soumission de job</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.password</code></td>
                         <td>password123456789</td>
-                        <td>Mot de passe commun attribu&#233; &#224; tous les comptes g&#233;n&#233;r&#233;s</td>
+                        <td>Mot de passe par d&#233;faut attribu&#233; &#224; tous les comptes g&#233;n&#233;r&#233;s quand la requ&#234;te n'en pr&#233;cise pas</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.mail.suffix</code></td>
                         <td>@paris.test.fr</td>
-                        <td>Suffixe email pour les comptes g&#233;n&#233;r&#233;s</td>
+                        <td>Suffixe email pour les comptes g&#233;n&#233;r&#233;s (format l&#233;gacy)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.executor.threads</code></td>
+                        <td>2</td>
+                        <td>Taille du pool de threads ex&#233;cutant les jobs en asynchrone</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.filesystem.path</code></td>
+                        <td>/tmp/accountgenerator</td>
+                        <td>R&#233;pertoire d'&#233;criture des fichiers CSV g&#233;n&#233;r&#233;s. Doit &#234;tre accessible en &#233;criture par le serveur d'application.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.file.flush.size</code></td>
+                        <td>10</td>
+                        <td>Nombre de comptes entre deux flush CSV et deux lignes de rapport de progression</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.db.flush.size</code></td>
+                        <td>500</td>
+                        <td>Nombre d'identity-accounts bufferis&#233;s avant un insert en base</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.csv.separator</code></td>
+                        <td>;</td>
+                        <td>S&#233;parateur de colonnes utilis&#233; dans le CSV g&#233;n&#233;r&#233;</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.view.preview.size</code></td>
+                        <td>20</td>
+                        <td>Nombre de comptes g&#233;n&#233;r&#233;s affich&#233;s dans la table d'aper&#231;u sur la page de d&#233;tail du job</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.certifier.*</code></td>
@@ -143,7 +191,7 @@
                     <tr>
                         <td><code>accountgenerator.identityService</code></td>
                         <td>IdentityService</td>
-                        <td>Service client pour l'API IdentityStore</td>
+                        <td>Service client pour l'API IdentityStore (utilise HttpApiManagerAccessTransport)</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagementService</code></td>
@@ -159,6 +207,36 @@
                         <td><code>accountgenerator.accountDao</code></td>
                         <td>IdentityAccountDao</td>
                         <td>DAO pour la table accountgenerator_account</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobDao</code></td>
+                        <td>AccountGenerationJobDao</td>
+                        <td>DAO pour la table accountgenerator_job</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobExecutor</code></td>
+                        <td>java.util.concurrent.ExecutorService</td>
+                        <td>Pool de threads fixe ex&#233;cutant les jobs en arri&#232;re-plan (dimensionn&#233; par accountgenerator.executor.threads)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobService</code></td>
+                        <td>AccountGenerationJobService</td>
+                        <td>Orchestrateur des jobs : valide la requ&#234;te, persiste le job, le planifie sur l'ex&#233;cuteur, suit la progression, &#233;crit le CSV, et publie l'URL de t&#233;l&#233;chargement.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.localFileSystemDirectoryFileService</code></td>
+                        <td>LocalFileSystemDirectoryFileService</td>
+                        <td>Impl&#233;mentation d'IFileStoreServiceProvider qui stocke les CSV g&#233;n&#233;r&#233;s sur disque dans <code>accountgenerator.filesystem.path</code>. Enregistr&#233;e aupr&#232;s du FileService de Lutece sous le m&#234;me nom.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.defaultFileDownloadUrlService</code></td>
+                        <td>DefaultFileDownloadService</td>
+                        <td>Service Lutece core produisant les URLs sign&#233;es de t&#233;l&#233;chargement back-office</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.defaultFileNoRBACService</code></td>
+                        <td>DefaultFileNoRBACService</td>
+                        <td>Strat&#233;gie RBAC permissive : tout administrateur authentifi&#233; peut t&#233;l&#233;charger le fichier</td>
                     </tr>
                 </table>
 
@@ -192,6 +270,25 @@
                         <td>Met en cache les codes communes r&#233;cup&#233;r&#233;s depuis l'API Geocodes, index&#233;s par date de r&#233;f&#233;rence. &#201;vite les appels HTTP r&#233;p&#233;t&#233;s pour la g&#233;n&#233;ration des codes de lieu de naissance.</td>
                     </tr>
                 </table>
+
+                <p><b>Base de donn&#233;es</b></p>
+                <p>
+                    Les scripts SQL sont dans <code>src/sql/plugins/accountgenerator/</code>. Deux tables sont cr&#233;&#233;es :
+                </p>
+                <table>
+                    <tr>
+                        <th>Table</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator_account</code></td>
+                        <td>Suivi de chaque identit&#233; / compte MonParis g&#233;n&#233;r&#233;s avec leurs dates de cr&#233;ation et d'expiration, pour purge ult&#233;rieure. Chaque ligne porte la <code>job_reference</code> du job qui l'a cr&#233;&#233;e, ce qui permet &#224; un job de cibler la suppression de ses propres comptes.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator_job</code></td>
+                        <td>Enregistre chaque job asynchrone : r&#233;f&#233;rence (UUID, unique), statut (PENDING / IN_PROGRESS / COMPLETED / FAILED), payload de la requ&#234;te, compteurs (trait&#233;s, succ&#232;s, &#233;checs), cl&#233; du fichier CSV, message d'erreur &#233;ventuel, et <code>date_accounts_deletion</code> une fois que l'action "Supprimer les comptes g&#233;n&#233;r&#233;s" a &#233;t&#233; d&#233;clench&#233;e.</td>
+                    </tr>
+                </table>
             </subsection>
             <subsection name="Usage">
                 <p><b>Droits d'administration</b></p>
@@ -208,6 +305,26 @@
                     </tr>
                 </table>
 
+                <p><b>Vues back office</b></p>
+                <table>
+                    <tr>
+                        <th>Vue</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>manageJobs</code> (vue par d&#233;faut)</td>
+                        <td>Liste des jobs avec leur r&#233;f&#233;rence, date de cr&#233;ation, utilisateur, statut et avancement. Bouton "Nouveau job".</td>
+                    </tr>
+                    <tr>
+                        <td><code>createJob</code></td>
+                        <td>Formulaire de soumission d'un nouveau job. Les champs du formulaire sont m&#233;moris&#233;s en cas d'erreur de validation.</td>
+                    </tr>
+                    <tr>
+                        <td><code>viewJob</code></td>
+                        <td>Page de d&#233;tail d'un job : m&#233;tadonn&#233;es, barre de progression en temps r&#233;el (via ProgressManagerService) pendant l'ex&#233;cution, lien de t&#233;l&#233;chargement du CSV une fois termin&#233;, aper&#231;u tabulaire des <code>accountgenerator.view.preview.size</code> premiers comptes g&#233;n&#233;r&#233;s (email / mot de passe / CUID / GUID), et bouton "Supprimer les comptes g&#233;n&#233;r&#233;s" qui efface l'ensemble des identit&#233;s externes, comptes MonParis et lignes locales cr&#233;&#233;s par ce job.</td>
+                    </tr>
+                </table>
+
                 <p><b>Services</b></p>
                 <table>
                     <tr>
@@ -216,9 +333,39 @@
                         <th>Description</th>
                     </tr>
                     <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>submit(AccountGenerationDto, clientCode, appCode, authorName, authorType, user)</code></td>
+                        <td>Valide la requ&#234;te, persiste un job PENDING, le planifie sur l'ex&#233;cuteur et retourne le job (avec sa r&#233;f&#233;rence). L&#232;ve <code>RequestFormatException</code> si la requ&#234;te est invalide (aucune ligne ins&#233;r&#233;e dans ce cas).</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>findByReference(String) / findAll() / getProgressFeedToken(String) / getDownloadUrl(AccountGenerationJob)</code></td>
+                        <td>Helpers de consultation utilis&#233;s par le back office et l'endpoint REST de statut. La liste des jobs est tri&#233;e du plus r&#233;cent au plus ancien (<code>date_creation DESC, id_job DESC</code>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>getCsvPreview(AccountGenerationJob, int)</code></td>
+                        <td>Retourne les <em>N</em> premi&#232;res lignes du CSV du job (email, mot de passe, CUID, GUID) sans charger tout le fichier. Vide une fois les comptes supprim&#233;s.</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>deleteGeneratedAccounts(String reference)</code></td>
+                        <td>Suppression idempotente et cibl&#233;e : supprime tous les comptes tagu&#233;s avec la r&#233;f&#233;rence de ce job dans les API externes et la base locale, supprime le CSV sur disque, et positionne <code>date_accounts_deletion</code> sur le job.</td>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountPurgeService</code></td>
+                        <td><code>purgeByJobReference(String)</code></td>
+                        <td>Appel&#233; par <code>deleteGeneratedAccounts</code>. Charge toutes les lignes <code>accountgenerator_account</code> portant la r&#233;f&#233;rence, les supprime dans AccountManagement + IdentityStore, puis les retire de la table locale.</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobValidationService</code></td>
+                        <td><code>validate(AccountGenerationDto)</code></td>
+                        <td>Validation stricte (taille de lot dans les bornes, validit&#233; positive, birthdate parseable en dd/MM/yyyy, loginPrefix/loginSuffix coh&#233;rents).</td>
+                    </tr>
+                    <tr>
                         <td><code>IdentityAccountGeneratorService</code></td>
-                        <td><code>createIdentityAccountBatch(AccountGenerationDto)</code></td>
-                        <td>Cr&#233;e un lot d'identit&#233;s avec des attributs certifi&#233;s al&#233;atoires et cr&#233;e optionnellement des comptes MonParis associ&#233;s. Retourne une liste de GeneratedAccountDto contenant email, mot de passe, cuid, guid et messages de statut pour chaque compte.</td>
+                        <td><code>createIdentityAccountBatch(AccountGenerationDto, String jobReference, GeneratedAccountConsumer)</code></td>
+                        <td>G&#233;n&#232;re le lot et streame chaque compte g&#233;n&#233;r&#233; vers le consumer fourni (utilis&#233; par le service de job pour &#233;crire le CSV et avancer le feed de progression), en persistant les identity-accounts par blocs. Chaque ligne persist&#233;e est tagu&#233;e avec la <code>jobReference</code> fournie.</td>
                     </tr>
                     <tr>
                         <td><code>IdentityAccountPurgeService</code></td>
@@ -236,8 +383,13 @@
                     </tr>
                     <tr>
                         <td>POST</td>
-                        <td><code>/rest/identitystore/api/v3/account/generator</code></td>
-                        <td>G&#233;n&#233;rer un lot d'identit&#233;s et/ou de comptes MonParis</td>
+                        <td><code>/rest/identitystore/api/v3/generator/account-generator</code></td>
+                        <td>Soumettre un job de g&#233;n&#233;ration asynchrone. Retourne <code>202 Accepted</code> avec une r&#233;f&#233;rence, ou <code>400 Bad Request</code> en cas de validation en &#233;chec (dans ce cas aucun job n'est cr&#233;&#233;).</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td><code>/rest/identitystore/api/v3/generator/account-generator/job/{reference}</code></td>
+                        <td>Consulter le statut courant d'un job : compteurs, pourcentage de progression, rapport (pendant l'ex&#233;cution) et URL de t&#233;l&#233;chargement (une fois termin&#233;).</td>
                     </tr>
                 </table>
                 <p>
@@ -250,7 +402,7 @@
                     <li><code>X-Application-Code</code> - code de l'application</li>
                 </ul>
                 <p>
-                    <b>Corps de la requ&#234;te (JSON) :</b>
+                    <b>Corps de la requ&#234;te POST (JSON) :</b>
                 </p>
                 <table>
                     <tr>
@@ -261,12 +413,7 @@
                     <tr>
                         <td><code>generation.generateAccount</code></td>
                         <td>boolean</td>
-                        <td>Indique s'il faut &#233;galement cr&#233;er un compte MonParis pour chaque identit&#233;</td>
-                    </tr>
-                    <tr>
-                        <td><code>generation.generationPattern</code></td>
-                        <td>string</td>
-                        <td>Motif utilis&#233; dans les valeurs des attributs g&#233;n&#233;r&#233;s (email, noms)</td>
+                        <td>Cr&#233;er &#233;galement un compte MonParis pour chaque identit&#233;</td>
                     </tr>
                     <tr>
                         <td><code>generation.generationIncrementOffset</code></td>
@@ -281,13 +428,69 @@
                     <tr>
                         <td><code>generation.batchSize</code></td>
                         <td>integer</td>
-                        <td>Nombre d'identit&#233;s/comptes &#224; g&#233;n&#233;rer (plafonn&#233; par la propri&#233;t&#233; generation.limit)</td>
+                        <td>Nombre d'identit&#233;s/comptes &#224; g&#233;n&#233;rer (plafonn&#233; par <code>generation.limit</code>)</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.loginPrefix</code> / <code>generation.loginSuffix</code></td>
+                        <td>string</td>
+                        <td>Format de l'email : <code>[loginPrefix][offset+i][loginSuffix]</code>. Les deux doivent &#234;tre fournis ensemble.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.password</code></td>
+                        <td>string</td>
+                        <td>Mot de passe commun. Fallback : <code>accountgenerator.generation.password</code> si vide.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.firstNamePrefix</code> / <code>generation.familyNamePrefix</code></td>
+                        <td>string</td>
+                        <td>Pr&#233;fixes facultatifs pour les noms/pr&#233;noms randomis&#233;s.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.birthdate</code></td>
+                        <td>string (dd/MM/yyyy)</td>
+                        <td>Date de naissance fix&#233;e. Si absente, une date al&#233;atoire est g&#233;n&#233;r&#233;e.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.birthCountryCode</code> / <code>generation.birthplaceCode</code></td>
+                        <td>string</td>
+                        <td>Codes g&#233;ographiques fix&#233;s. Sinon le code commune est pris dans le cache Geocodes.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.identityCertifier</code> / <code>generation.mailLoginCertifier</code></td>
+                        <td>string</td>
+                        <td>Certificateurs appliqu&#233;s aux attributs (surcharge les d&#233;fauts des properties).</td>
                     </tr>
                 </table>
                 <p>
-                    <b>Corps de la r&#233;ponse (JSON) :</b> Un objet <code>AccountGenerationResponse</code> contenant une liste
-                    <code>generated_accounts</code>. Chaque entr&#233;e comprend <code>email</code>, <code>password</code>,
-                    <code>cuid</code>, <code>guid</code>, et une liste <code>status</code> de messages. La r&#233;ponse est synchrone.
+                    <b>Corps de la r&#233;ponse POST (JSON) :</b> une enveloppe de job avec la r&#233;f&#233;rence fra&#238;chement cr&#233;&#233;e et son statut initial.
+                </p>
+                <source><![CDATA[{
+  "reference": "9b1f8c02-7a62-4c85-b3a3-dbb0d9f8b1a1",
+  "status": "PENDING",
+  "creation_date": "2026-04-21T17:12:33Z",
+  "batch_size": 1000
+}]]></source>
+                <p>
+                    <b>Corps de la r&#233;ponse GET (JSON) :</b> &#233;tat courant du job avec pourcentage d'avancement, rapport de progression
+                    (pendant l'ex&#233;cution) et URL de t&#233;l&#233;chargement (une fois termin&#233;).
+                </p>
+                <source><![CDATA[{
+  "reference": "9b1f8c02-7a62-4c85-b3a3-dbb0d9f8b1a1",
+  "status": "COMPLETED",
+  "creation_date": "2026-04-21T17:12:33Z",
+  "completion_date": "2026-04-21T17:18:07Z",
+  "batch_size": 1000,
+  "nb_processed": 1000,
+  "nb_success": 998,
+  "nb_failure": 2,
+  "progress_percent": 100,
+  "download_url": "jsp/admin/file/download?..."
+}]]></source>
+                <p>
+                    <b>Sortie CSV :</b> une fois termin&#233;, le job produit un fichier nomm&#233;
+                    <code>accountgenerator-&lt;reference&gt;.csv</code> dans <code>accountgenerator.filesystem.path</code>.
+                    Colonnes : <code>email</code>, <code>password</code>, <code>cuid</code>, <code>guid</code>, s&#233;par&#233;es par
+                    <code>accountgenerator.generation.csv.separator</code>.
                 </p>
             </subsection>
         </section>

@@ -43,8 +43,10 @@ import java.util.List;
 public class IdentityAccountDao implements IIdentityAccountDao
 {
 
-    private final static String INSERT = "INSERT INTO accountgenerator_account(guid, cuid, creationDate, expirationDate) VALUES (?,?,?,?)";
-    private final static String SELECT_EXPIRED_ACCOUNTS = "SELECT guid, cuid, creationDate, expirationDate FROM accountgenerator_account WHERE expirationDate <= NOW()";
+    private static final String INSERT = "INSERT INTO accountgenerator_account(guid, cuid, creationDate, expirationDate, job_reference) VALUES (?,?,?,?,?)";
+    private static final String SELECT_EXPIRED_ACCOUNTS = "SELECT guid, cuid, creationDate, expirationDate, job_reference FROM accountgenerator_account WHERE expirationDate <= NOW()";
+    private static final String SELECT_BY_JOB_REFERENCE = "SELECT guid, cuid, creationDate, expirationDate, job_reference FROM accountgenerator_account WHERE job_reference = ?";
+    private static final String DELETE_BY_JOB_REFERENCE = "DELETE FROM accountgenerator_account WHERE job_reference = ?";
 
     @Override
     public void bulkSave( final List<IdentityAccount> accounts, final Plugin plugin )
@@ -57,6 +59,7 @@ public class IdentityAccountDao implements IIdentityAccountDao
                 daoUtil.setString( 2, account.getCuid( ) );
                 daoUtil.setDate( 3, new Date( account.getCreationDate( ).getTime( ) ) );
                 daoUtil.setDate( 4, new Date( account.getExpirationDate( ).getTime( ) ) );
+                daoUtil.setString( 5, account.getJobReference( ) );
                 daoUtil.executeUpdate( );
             }
         }
@@ -71,6 +74,7 @@ public class IdentityAccountDao implements IIdentityAccountDao
             daoUtil.setString( 2, account.getCuid( ) );
             daoUtil.setDate( 3, new Date( account.getCreationDate( ).getTime( ) ) );
             daoUtil.setDate( 4, new Date( account.getExpirationDate( ).getTime( ) ) );
+            daoUtil.setString( 5, account.getJobReference( ) );
             daoUtil.executeUpdate( );
         }
     }
@@ -84,14 +88,46 @@ public class IdentityAccountDao implements IIdentityAccountDao
             daoUtil.executeQuery( );
             while ( daoUtil.next( ) )
             {
-                final IdentityAccount account = new IdentityAccount( );
-                account.setGuid( daoUtil.getString( 1 ) );
-                account.setCuid( daoUtil.getString( 2 ) );
-                account.setCreationDate( daoUtil.getDate( 3 ) );
-                account.setExpirationDate( daoUtil.getDate( 4 ) );
-                accounts.add( account );
+                accounts.add( fromRow( daoUtil ) );
             }
         }
         return accounts;
+    }
+
+    @Override
+    public List<IdentityAccount> loadByJobReference( final String jobReference, final Plugin plugin )
+    {
+        final List<IdentityAccount> accounts = new ArrayList<>( );
+        try ( final DAOUtil daoUtil = new DAOUtil( SELECT_BY_JOB_REFERENCE ) )
+        {
+            daoUtil.setString( 1, jobReference );
+            daoUtil.executeQuery( );
+            while ( daoUtil.next( ) )
+            {
+                accounts.add( fromRow( daoUtil ) );
+            }
+        }
+        return accounts;
+    }
+
+    @Override
+    public void deleteByJobReference( final String jobReference, final Plugin plugin )
+    {
+        try ( final DAOUtil daoUtil = new DAOUtil( DELETE_BY_JOB_REFERENCE ) )
+        {
+            daoUtil.setString( 1, jobReference );
+            daoUtil.executeUpdate( );
+        }
+    }
+
+    private static IdentityAccount fromRow( final DAOUtil daoUtil )
+    {
+        final IdentityAccount account = new IdentityAccount( );
+        account.setGuid( daoUtil.getString( 1 ) );
+        account.setCuid( daoUtil.getString( 2 ) );
+        account.setCreationDate( daoUtil.getDate( 3 ) );
+        account.setExpirationDate( daoUtil.getDate( 4 ) );
+        account.setJobReference( daoUtil.getString( 5 ) );
+        return account;
     }
 }

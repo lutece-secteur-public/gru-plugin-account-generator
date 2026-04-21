@@ -4,7 +4,7 @@
         <title>Plugin accountgenerator</title>
     </properties>
     <head>
-        <meta name="keywords" content="identity,account,generation,monparis,gru,batch,purge,test" />
+        <meta name="keywords" content="identity,account,generation,monparis,gru,batch,purge,test,job,async,progress" />
     </head>
     <body>
         <section name="Plugin accountgenerator">
@@ -15,11 +15,18 @@
                     generate realistic user data with certified attributes (name, birthdate, gender, email, birthplace, etc.).
                 </p>
                 <p>
-                    The plugin offers two ways to trigger account generation:
+                    Each generation request is persisted as a <b>job</b> with a reference token (UUID). Jobs are processed
+                    asynchronously by a background executor so that large batches (up to 100&#160;000 accounts) do not block
+                    the caller. Job progress is exposed through the Lutece <code>ProgressManagerService</code> and via a
+                    consultation REST endpoint. Once a job completes, the generated data (email, password, CUID, GUID) is
+                    available as a downloadable CSV file.
+                </p>
+                <p>
+                    The plugin offers two ways to submit a job:
                 </p>
                 <ul>
-                    <li>A <b>REST API</b> endpoint for programmatic or external tool integration.</li>
-                    <li>A <b>Back Office admin feature</b> with a form to launch generation directly from the Lutece administration interface.</li>
+                    <li>A <b>REST API</b>: <code>POST</code> to submit a job, <code>GET</code> to poll its status by reference.</li>
+                    <li>A <b>Back Office admin feature</b> with three views (jobs list, submission form, job detail with progress bar and download link).</li>
                 </ul>
                 <p>
                     Generated accounts are tracked in a database table with an expiration date. A configurable daemon
@@ -48,58 +55,98 @@
                     </tr>
                     <tr>
                         <td><code>accountgenerator.identitystore.ApiEndPointUrl</code></td>
-                        <td>http://localhost:8080</td>
+                        <td></td>
                         <td>IdentityStore API base URL</td>
                     </tr>
                     <tr>
+                        <td><code>accountgenerator.identitystore.accessManagerEndPointUrl</code></td>
+                        <td></td>
+                        <td>Access manager endpoint URL for IdentityStore API calls</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.identitystore.accessManagerCredentials</code></td>
+                        <td></td>
+                        <td>Access manager credentials for IdentityStore API calls</td>
+                    </tr>
+                    <tr>
                         <td><code>accountgenerator.accountManagement.ApiEndPointUrl</code></td>
-                        <td>http://localhost:9080</td>
+                        <td></td>
                         <td>AccountManagement API base URL</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.path</code></td>
-                        <td>/site-openam/rest/openam/api/1</td>
+                        <td></td>
                         <td>AccountManagement API path</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-code</code></td>
-                        <td>TEST</td>
+                        <td></td>
                         <td>Client code for IdentityStore API calls</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-name</code></td>
-                        <td>AccountGenerator</td>
+                        <td></td>
                         <td>Client name for IdentityStore API calls</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.client-id</code></td>
-                        <td>test</td>
+                        <td></td>
                         <td>Client ID for AccountManagement API</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagement.secret-id</code></td>
-                        <td>test</td>
+                        <td></td>
                         <td>Client secret for AccountManagement API</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.geocodes.city.codes.endpoint</code></td>
-                        <td>http://localhost:8080/rest/geocodes/api/v1/cities/codes</td>
+                        <td></td>
                         <td>Geocodes API endpoint for city codes</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.limit</code></td>
-                        <td>50</td>
-                        <td>Maximum number of accounts per generation request</td>
+                        <td>100000</td>
+                        <td>Maximum batch size accepted by a single job submission</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.password</code></td>
                         <td>password123456789</td>
-                        <td>Common password assigned to all generated accounts</td>
+                        <td>Default password assigned to all generated accounts when none is provided in the request</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.mail.suffix</code></td>
                         <td>@paris.test.fr</td>
-                        <td>Email suffix for generated accounts</td>
+                        <td>Email suffix for generated accounts (legacy pattern)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.executor.threads</code></td>
+                        <td>2</td>
+                        <td>Size of the fixed thread pool running generation jobs asynchronously</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.filesystem.path</code></td>
+                        <td>/tmp/accountgenerator</td>
+                        <td>Directory where generated CSV files are written. Must be writable by the application server.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.file.flush.size</code></td>
+                        <td>10</td>
+                        <td>Number of generated accounts between two CSV flushes and two progress report lines</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.db.flush.size</code></td>
+                        <td>500</td>
+                        <td>Number of storable identity-accounts buffered before a DB insert</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.generation.csv.separator</code></td>
+                        <td>;</td>
+                        <td>Column separator used in the generated CSV file</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.view.preview.size</code></td>
+                        <td>20</td>
+                        <td>Number of generated accounts shown in the preview table on the job detail page</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.generation.certifier.*</code></td>
@@ -141,7 +188,7 @@
                     <tr>
                         <td><code>accountgenerator.identityService</code></td>
                         <td>IdentityService</td>
-                        <td>Client service for the IdentityStore API</td>
+                        <td>Client service for the IdentityStore API (wired with HttpApiManagerAccessTransport)</td>
                     </tr>
                     <tr>
                         <td><code>accountgenerator.accountManagementService</code></td>
@@ -157,6 +204,36 @@
                         <td><code>accountgenerator.accountDao</code></td>
                         <td>IdentityAccountDao</td>
                         <td>DAO for the accountgenerator_account table</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobDao</code></td>
+                        <td>AccountGenerationJobDao</td>
+                        <td>DAO for the accountgenerator_job table</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobExecutor</code></td>
+                        <td>java.util.concurrent.ExecutorService</td>
+                        <td>Fixed thread pool that runs generation jobs in background (sized by accountgenerator.executor.threads)</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.jobService</code></td>
+                        <td>AccountGenerationJobService</td>
+                        <td>Core job orchestrator: validates input, persists the job, schedules it on the executor, tracks progress, writes the CSV, and publishes the download URL.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.localFileSystemDirectoryFileService</code></td>
+                        <td>LocalFileSystemDirectoryFileService</td>
+                        <td>IFileStoreServiceProvider implementation that stores generated CSV files on disk at <code>accountgenerator.filesystem.path</code>. Registered with the Lutece FileService under the same name.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.defaultFileDownloadUrlService</code></td>
+                        <td>DefaultFileDownloadService</td>
+                        <td>Lutece core service producing signed back-office download URLs for generated files</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator.defaultFileNoRBACService</code></td>
+                        <td>DefaultFileNoRBACService</td>
+                        <td>Permissive RBAC strategy: any authenticated admin can download the file</td>
                     </tr>
                 </table>
 
@@ -190,6 +267,25 @@
                         <td>Caches city codes fetched from the Geocodes API, keyed by date reference. Avoids repeated HTTP calls for birthplace code generation.</td>
                     </tr>
                 </table>
+
+                <p><b>Database</b></p>
+                <p>
+                    SQL scripts are located in <code>src/sql/plugins/accountgenerator/</code>. Two tables are created:
+                </p>
+                <table>
+                    <tr>
+                        <th>Table</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator_account</code></td>
+                        <td>Tracks each generated identity / MonParis account with its creation and expiration dates for later purge. Each row carries the <code>job_reference</code> of the job that created it so that a job can scope-delete its own accounts.</td>
+                    </tr>
+                    <tr>
+                        <td><code>accountgenerator_job</code></td>
+                        <td>Records each asynchronous generation job: reference (UUID, unique), status (PENDING / IN_PROGRESS / COMPLETED / FAILED), request payload, counters (processed, success, failure), CSV file key, optional error message, and <code>date_accounts_deletion</code> once the "Delete generated accounts" action has been triggered.</td>
+                    </tr>
+                </table>
             </subsection>
             <subsection name="Usage">
                 <p><b>Admin Rights</b></p>
@@ -206,6 +302,26 @@
                     </tr>
                 </table>
 
+                <p><b>Back office views</b></p>
+                <table>
+                    <tr>
+                        <th>View</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>manageJobs</code> (default)</td>
+                        <td>List of all jobs with their reference, creation date, user, status and progress. Offers a "New job" button.</td>
+                    </tr>
+                    <tr>
+                        <td><code>createJob</code></td>
+                        <td>Form to submit a new generation job. Form fields are remembered across validation errors.</td>
+                    </tr>
+                    <tr>
+                        <td><code>viewJob</code></td>
+                        <td>Job detail page showing metadata, a live progress bar (via ProgressManagerService) while running, a download link to the generated CSV once completed, a preview table of the first <code>accountgenerator.view.preview.size</code> generated accounts (email / password / CUID / GUID), and a "Delete generated accounts" button that wipes all external identities, MonParis accounts and local DB rows created by this job.</td>
+                    </tr>
+                </table>
+
                 <p><b>Services</b></p>
                 <table>
                     <tr>
@@ -214,9 +330,39 @@
                         <th>Description</th>
                     </tr>
                     <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>submit(AccountGenerationDto, clientCode, appCode, authorName, authorType, user)</code></td>
+                        <td>Validates input, persists a PENDING job, schedules it on the executor and returns the job (with its reference). Throws <code>RequestFormatException</code> on invalid input, in which case no row is inserted.</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>findByReference(String) / findAll() / getProgressFeedToken(String) / getDownloadUrl(AccountGenerationJob)</code></td>
+                        <td>Job consultation helpers used by the back office and the status REST endpoint. The job list is sorted most-recent-first (<code>date_creation DESC, id_job DESC</code>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>getCsvPreview(AccountGenerationJob, int)</code></td>
+                        <td>Returns the first <em>N</em> rows of the job's CSV file (email, password, CUID, GUID) without loading the whole file. Empty once the accounts have been deleted.</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobService</code></td>
+                        <td><code>deleteGeneratedAccounts(String reference)</code></td>
+                        <td>Idempotent scope-delete: removes every account tagged with this job's reference from the external APIs and the local DB, deletes the CSV from disk, and stamps <code>date_accounts_deletion</code> on the job.</td>
+                    </tr>
+                    <tr>
+                        <td><code>IdentityAccountPurgeService</code></td>
+                        <td><code>purgeByJobReference(String)</code></td>
+                        <td>Called by <code>deleteGeneratedAccounts</code>. Loads all <code>accountgenerator_account</code> rows with the given reference, deletes them from AccountManagement + IdentityStore, then removes them from the local table.</td>
+                    </tr>
+                    <tr>
+                        <td><code>AccountGenerationJobValidationService</code></td>
+                        <td><code>validate(AccountGenerationDto)</code></td>
+                        <td>Strict parameter validation (batch size within bounds, positive validity, parseable dd/MM/yyyy birthdate, consistent loginPrefix/loginSuffix).</td>
+                    </tr>
+                    <tr>
                         <td><code>IdentityAccountGeneratorService</code></td>
-                        <td><code>createIdentityAccountBatch(AccountGenerationDto)</code></td>
-                        <td>Creates a batch of identities with random certified attributes and optionally creates associated MonParis accounts. Returns a list of GeneratedAccountDto with email, password, cuid, guid, and status messages for each account.</td>
+                        <td><code>createIdentityAccountBatch(AccountGenerationDto, String jobReference, GeneratedAccountConsumer)</code></td>
+                        <td>Generates the batch and streams each generated account to the given consumer (used by the job service to write the CSV and advance the progress feed), persisting storable identity-accounts in chunks. Each persisted row is tagged with the supplied <code>jobReference</code>.</td>
                     </tr>
                     <tr>
                         <td><code>IdentityAccountPurgeService</code></td>
@@ -234,8 +380,13 @@
                     </tr>
                     <tr>
                         <td>POST</td>
-                        <td><code>/rest/identitystore/api/v3/account/generator</code></td>
-                        <td>Generate a batch of identities and/or MonParis accounts</td>
+                        <td><code>/rest/identitystore/api/v3/generator/account-generator</code></td>
+                        <td>Submit an asynchronous generation job. Returns <code>202 Accepted</code> with a reference token, or <code>400 Bad Request</code> on validation error (in which case no job is created).</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td><code>/rest/identitystore/api/v3/generator/account-generator/job/{reference}</code></td>
+                        <td>Get a job's current status, counters, progress percentage, progress report (while running) and download URL (once completed).</td>
                     </tr>
                 </table>
                 <p>
@@ -248,7 +399,7 @@
                     <li><code>X-Application-Code</code> - application code</li>
                 </ul>
                 <p>
-                    <b>Request body (JSON):</b>
+                    <b>POST request body (JSON):</b>
                 </p>
                 <table>
                     <tr>
@@ -260,11 +411,6 @@
                         <td><code>generation.generateAccount</code></td>
                         <td>boolean</td>
                         <td>Whether to also create a MonParis account for each identity</td>
-                    </tr>
-                    <tr>
-                        <td><code>generation.generationPattern</code></td>
-                        <td>string</td>
-                        <td>Pattern used in generated attribute values (email, names)</td>
                     </tr>
                     <tr>
                         <td><code>generation.generationIncrementOffset</code></td>
@@ -279,13 +425,68 @@
                     <tr>
                         <td><code>generation.batchSize</code></td>
                         <td>integer</td>
-                        <td>Number of identities/accounts to generate (capped by generation.limit property)</td>
+                        <td>Number of identities/accounts to generate (capped by <code>generation.limit</code>)</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.loginPrefix</code> / <code>generation.loginSuffix</code></td>
+                        <td>string</td>
+                        <td>Email format: <code>[loginPrefix][offset+i][loginSuffix]</code>. Must both be provided together.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.password</code></td>
+                        <td>string</td>
+                        <td>Common password to assign. Falls back to <code>accountgenerator.generation.password</code> if empty.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.firstNamePrefix</code> / <code>generation.familyNamePrefix</code></td>
+                        <td>string</td>
+                        <td>Optional prefixes for randomized first/family names.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.birthdate</code></td>
+                        <td>string (dd/MM/yyyy)</td>
+                        <td>Fixed birthdate. If omitted, a random date is generated.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.birthCountryCode</code> / <code>generation.birthplaceCode</code></td>
+                        <td>string</td>
+                        <td>Fixed geography codes. If omitted, the birthplace is picked from the Geocodes cache.</td>
+                    </tr>
+                    <tr>
+                        <td><code>generation.identityCertifier</code> / <code>generation.mailLoginCertifier</code></td>
+                        <td>string</td>
+                        <td>Certifiers applied to the generated attributes (overrides the property defaults).</td>
                     </tr>
                 </table>
                 <p>
-                    <b>Response body (JSON):</b> An <code>AccountGenerationResponse</code> containing a <code>generated_accounts</code>
-                    list. Each entry includes <code>email</code>, <code>password</code>, <code>cuid</code>, <code>guid</code>,
-                    and a <code>status</code> list of messages. The response is synchronous.
+                    <b>POST response body (JSON):</b> A job envelope with the newly created reference and its initial status.
+                </p>
+                <source><![CDATA[{
+  "reference": "9b1f8c02-7a62-4c85-b3a3-dbb0d9f8b1a1",
+  "status": "PENDING",
+  "creation_date": "2026-04-21T17:12:33Z",
+  "batch_size": 1000
+}]]></source>
+                <p>
+                    <b>GET response body (JSON):</b> Current job state including progress percentage, the latest progress report lines
+                    (while running) and the download URL once the job has completed.
+                </p>
+                <source><![CDATA[{
+  "reference": "9b1f8c02-7a62-4c85-b3a3-dbb0d9f8b1a1",
+  "status": "COMPLETED",
+  "creation_date": "2026-04-21T17:12:33Z",
+  "completion_date": "2026-04-21T17:18:07Z",
+  "batch_size": 1000,
+  "nb_processed": 1000,
+  "nb_success": 998,
+  "nb_failure": 2,
+  "progress_percent": 100,
+  "download_url": "jsp/admin/file/download?..."
+}]]></source>
+                <p>
+                    <b>CSV output:</b> Once completed, the job produces a file named <code>accountgenerator-&lt;reference&gt;.csv</code>
+                    in <code>accountgenerator.filesystem.path</code>. Columns: <code>email</code>, <code>password</code>,
+                    <code>cuid</code>, <code>guid</code>, separated by <code>accountgenerator.generation.csv.separator</code>.
                 </p>
             </subsection>
         </section>

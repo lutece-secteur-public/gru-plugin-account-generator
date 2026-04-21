@@ -41,6 +41,7 @@ public class IdentityAccount
     private String cuid;
     private Date creationDate;
     private Date expirationDate;
+    private String jobReference;
 
     public String getGuid( )
     {
@@ -80,5 +81,15 @@ public class IdentityAccount
     public void setExpirationDate( Date expirationDate )
     {
         this.expirationDate = expirationDate;
+    }
+
+    public String getJobReference( )
+    {
+        return jobReference;
+    }
+
+    public void setJobReference( String jobReference )
+    {
+        this.jobReference = jobReference;
     }
 }

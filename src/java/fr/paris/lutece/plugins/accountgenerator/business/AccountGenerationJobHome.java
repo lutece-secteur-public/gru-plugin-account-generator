@@ -39,41 +39,39 @@ import fr.paris.lutece.portal.service.plugin.PluginService;
 import fr.paris.lutece.portal.service.spring.SpringContextService;
 
 import java.util.List;
+import java.util.Optional;
 
-public class IdentityAccountHome
+public final class AccountGenerationJobHome
 {
-
-    private static final IIdentityAccountDao _dao = SpringContextService.getBean( IIdentityAccountDao.BEAN_NAME );
+    private static final IAccountGenerationJobDao _dao = SpringContextService.getBean( IAccountGenerationJobDao.BEAN_NAME );
     private static final Plugin _plugin = PluginService.getPlugin( AccountGeneratorPlugin.PLUGIN_NAME );
 
-    public static void saveAccounts( final List<IdentityAccount> accounts )
+    private AccountGenerationJobHome( )
     {
-        if ( accounts != null && !accounts.isEmpty( ) )
-        {
-            _dao.bulkSave( accounts, _plugin );
-        }
     }
 
-    public static void saveAccount( final IdentityAccount account )
+    public static void create( final AccountGenerationJob job )
     {
-        if ( account != null )
-        {
-            _dao.save( account, _plugin );
-        }
+        _dao.insert( job, _plugin );
     }
 
-    public static List<IdentityAccount> loadExpiredAccounts( )
+    public static void update( final AccountGenerationJob job )
     {
-        return _dao.loadExpiredAccounts( _plugin );
+        _dao.update( job, _plugin );
     }
 
-    public static List<IdentityAccount> findByJobReference( final String jobReference )
+    public static Optional<AccountGenerationJob> findByReference( final String strReference )
     {
-        return _dao.loadByJobReference( jobReference, _plugin );
+        return _dao.loadByReference( strReference, _plugin );
     }
 
-    public static void deleteByJobReference( final String jobReference )
+    public static Optional<AccountGenerationJob> findById( final int nId )
     {
-        _dao.deleteByJobReference( jobReference, _plugin );
+        return _dao.loadById( nId, _plugin );
+    }
+
+    public static List<AccountGenerationJob> findAll( )
+    {
+        return _dao.loadAll( _plugin );
     }
 }

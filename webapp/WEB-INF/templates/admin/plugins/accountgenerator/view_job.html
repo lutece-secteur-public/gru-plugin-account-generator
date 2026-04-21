@@ -1,0 +1,110 @@
+<@box>
+    <@boxHeader title='#i18n{accountgenerator.view_job.title}'>
+        <@aButton title='#i18n{accountgenerator.view_job.buttonBack}' href='jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp' buttonIcon='arrow-left me-1 mr-1' size='sm' />
+    </@boxHeader>
+    <@boxBody>
+        <dl class="row">
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelReference}</dt>
+            <dd class="col-sm-9"><code>${job.reference}</code></dd>
+
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelStatus}</dt>
+            <dd class="col-sm-9">
+                <#assign status = job.status.name() />
+                <#if status == "COMPLETED">
+                    <span class="badge bg-success">#i18n{accountgenerator.job.status.completed}</span>
+                <#elseif status == "IN_PROGRESS">
+                    <span class="badge bg-info">#i18n{accountgenerator.job.status.inProgress}</span>
+                <#elseif status == "PENDING">
+                    <span class="badge bg-secondary">#i18n{accountgenerator.job.status.pending}</span>
+                <#else>
+                    <span class="badge bg-danger">#i18n{accountgenerator.job.status.failed}</span>
+                </#if>
+                <#if job.accountsDeletionDate??>
+                    <span class="badge bg-warning ms-2 ml-2">#i18n{accountgenerator.view_job.labelAccountsDeleted}</span>
+                </#if>
+            </dd>
+
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelCreationDate}</dt>
+            <dd class="col-sm-9">${job.creationDate?string('dd/MM/yyyy HH:mm:ss')}</dd>
+
+            <#if job.completionDate??>
+                <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelCompletionDate}</dt>
+                <dd class="col-sm-9">${job.completionDate?string('dd/MM/yyyy HH:mm:ss')}</dd>
+            </#if>
+
+            <#if job.accountsDeletionDate??>
+                <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelAccountsDeletionDate}</dt>
+                <dd class="col-sm-9">${job.accountsDeletionDate?string('dd/MM/yyyy HH:mm:ss')}</dd>
+            </#if>
+
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelUser}</dt>
+            <dd class="col-sm-9">${job.user!""}</dd>
+
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelBatchSize}</dt>
+            <dd class="col-sm-9">${job.batchSize}</dd>
+
+            <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelProcessed}</dt>
+            <dd class="col-sm-9">${job.nbProcessed} (${job.nbSuccess} #i18n{accountgenerator.view_job.labelSuccess}, ${job.nbFailure} #i18n{accountgenerator.view_job.labelFailure})</dd>
+
+            <#if job.errorMessage??>
+                <dt class="col-sm-3">#i18n{accountgenerator.view_job.labelError}</dt>
+                <dd class="col-sm-9"><pre class="alert alert-danger">${job.errorMessage}</pre></dd>
+            </#if>
+        </dl>
+
+        <#if feed_token??>
+            <hr/>
+            <h5>#i18n{accountgenerator.view_job.titleProgress}</h5>
+            <@progress token='${feed_token}' showReport=true intervalTime=2000 />
+        <#elseif progress_percent??>
+            <hr/>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: ${progress_percent}%;" aria-valuenow="${progress_percent}" aria-valuemin="0" aria-valuemax="100">${progress_percent}%</div>
+            </div>
+        </#if>
+
+        <#if preview_rows?? && (preview_rows?size > 0)>
+            <hr/>
+            <h5>#i18n{accountgenerator.view_job.titlePreview} <small class="text-muted">(#i18n{accountgenerator.view_job.previewHelp} ${preview_size})</small></h5>
+            <@table headBody=true>
+                <@tr>
+                    <@th>#</@th>
+                    <@th>#i18n{accountgenerator.generate_accounts.columnEmail}</@th>
+                    <@th>#i18n{accountgenerator.generate_accounts.columnPassword}</@th>
+                    <@th>#i18n{accountgenerator.generate_accounts.columnCuid}</@th>
+                    <@th>#i18n{accountgenerator.generate_accounts.columnGuid}</@th>
+                </@tr>
+                <@tableHeadBodySeparator />
+                <#list preview_rows as row>
+                    <@tr>
+                        <@td>${row_index + 1}</@td>
+                        <@td>${(row[0])!""}</@td>
+                        <@td>${(row[1])!""}</@td>
+                        <@td>${(row[2])!""}</@td>
+                        <@td>${(row[3])!""}</@td>
+                    </@tr>
+                </#list>
+            </@table>
+        </#if>
+
+        <#if download_url??>
+            <hr/>
+            <div class="alert alert-success">
+                <a href="${download_url}" class="btn btn-success" download>
+                    <i class="ti ti-download me-1"></i>
+                    #i18n{accountgenerator.view_job.buttonDownload} (${job.fileName!""})
+                </a>
+            </div>
+        </#if>
+
+        <#if (job.status.name() == "COMPLETED") && !job.accountsDeletionDate?? && (job.nbSuccess > 0)>
+            <hr/>
+            <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp" onsubmit="return confirm('#i18n{accountgenerator.view_job.confirmDelete}');">
+                <input type="hidden" name="action" value="deleteJobAccounts" />
+                <input type="hidden" name="token" value="${delete_token}" />
+                <input type="hidden" name="reference" value="${job.reference}" />
+                <@button type='submit' buttonIcon='trash me-1 mr-1' title='#i18n{accountgenerator.view_job.buttonDeleteAccounts}' color='danger' />
+            </form>
+        </#if>
+    </@boxBody>
+</@box>

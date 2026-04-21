@@ -9,6 +9,28 @@
 
     <!-- DAO -->
     <bean id="accountgenerator.accountDao" class="fr.paris.lutece.plugins.accountgenerator.business.IdentityAccountDao" />
+    <bean id="accountgenerator.jobDao" class="fr.paris.lutece.plugins.accountgenerator.business.AccountGenerationJobDao" />
+
+    <!-- File storage for generated CSV files -->
+    <bean id="accountgenerator.defaultFileDownloadUrlService" class="fr.paris.lutece.portal.service.file.implementation.DefaultFileDownloadService" />
+    <bean id="accountgenerator.defaultFileNoRBACService" class="fr.paris.lutece.portal.service.file.implementation.DefaultFileNoRBACService" />
+
+    <bean id="accountgenerator.localFileSystemDirectoryFileService" class="fr.paris.lutece.plugins.accountgenerator.service.file.implementation.LocalFileSystemDirectoryFileService">
+        <constructor-arg value="${accountgenerator.filesystem.path}" />
+        <constructor-arg ref="accountgenerator.defaultFileDownloadUrlService" />
+        <constructor-arg ref="accountgenerator.defaultFileNoRBACService" />
+        <property name="name" value="accountgenerator.localFileSystemDirectoryFileService" />
+    </bean>
+
+    <!-- Async executor for account generation jobs -->
+    <bean id="accountgenerator.jobExecutor" class="java.util.concurrent.Executors" factory-method="newFixedThreadPool" destroy-method="shutdown">
+        <constructor-arg type="int" value="${accountgenerator.executor.threads}" />
+    </bean>
+
+    <!-- Job service -->
+    <bean id="accountgenerator.jobService" class="fr.paris.lutece.plugins.accountgenerator.service.AccountGenerationJobService">
+        <constructor-arg ref="accountgenerator.jobExecutor" />
+    </bean>
 
     <!-- IHttpTransportProvider declarations -->
     <bean id="accountgenerator.identitystore.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpApiManagerAccessTransport" >

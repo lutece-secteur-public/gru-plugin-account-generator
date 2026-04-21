@@ -1,8 +1,10 @@
 <@box>
-    <@boxHeader title='#i18n{accountgenerator.generate_accounts.title}' />
+    <@boxHeader title='#i18n{accountgenerator.generate_accounts.title}'>
+        <@aButton title='#i18n{accountgenerator.view_job.buttonBack}' href='jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp' buttonIcon='arrow-left me-1 mr-1' size='sm' />
+    </@boxHeader>
     <@boxBody>
         <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp">
-            <input type="hidden" name="action" value="doGenerateAccounts" />
+            <input type="hidden" name="action" value="submitJob" />
             <input type="hidden" name="token" value="${token}" />
 
             <p><strong>#i18n{accountgenerator.generate_accounts.sectionLogin}</strong></p>
@@ -101,44 +103,3 @@
         </form>
     </@boxBody>
 </@box>
-
-<#if generated_accounts?? && (generated_accounts?size > 0)>
-<@box>
-    <@boxHeader title='#i18n{accountgenerator.generate_accounts.resultTitle}' />
-    <@boxBody>
-        <#if generation_message??>
-            <div class="alert alert-info">${generation_message}</div>
-        </#if>
-
-        <@table headBody=true>
-            <@tr>
-                <@th>#</@th>
-                <@th>#i18n{accountgenerator.generate_accounts.columnEmail}</@th>
-                <@th>#i18n{accountgenerator.generate_accounts.columnPassword}</@th>
-                <@th>#i18n{accountgenerator.generate_accounts.columnCuid}</@th>
-                <@th>#i18n{accountgenerator.generate_accounts.columnGuid}</@th>
-                <@th>#i18n{accountgenerator.generate_accounts.columnStatus}</@th>
-            </@tr>
-            <@tableHeadBodySeparator />
-            <#list generated_accounts as account>
-            <@tr>
-                <@td>${account_index + 1}</@td>
-                <@td>${account.email!""}</@td>
-                <@td>${account.password!""}</@td>
-                <@td>${account.cuid!""}</@td>
-                <@td>${account.guid!""}</@td>
-                <@td>
-                    <#if account.status?? && (account.status?size > 0)>
-                        <#list account.status as statusMsg>
-                            <span class="badge bg-<#if account.hasIdentity()>info<#else>warning</#if>">${statusMsg}</span><br/>
-                        </#list>
-                    <#else>
-                        <span class="badge bg-success">OK</span>
-                    </#if>
-                </@td>
-            </@tr>
-            </#list>
-        </@table>
-    </@boxBody>
-</@box>
-</#if>

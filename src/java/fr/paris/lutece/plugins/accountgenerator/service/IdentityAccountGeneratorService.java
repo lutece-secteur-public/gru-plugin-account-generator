@@ -69,7 +69,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 public class IdentityAccountGeneratorService
 {
@@ -138,134 +137,148 @@ public class IdentityAccountGeneratorService
         maxGenerationDate = LocalDate.of( birthdateMaxGenerationYear, birthdateMaxGenerationMonth, birthdateMaxGenerationDay );
     }
 
+    private static final int DB_FLUSH_SIZE = AppPropertiesService.getPropertyInt( "accountgenerator.generation.db.flush.size", 500 );
+
     /**
-     * Create a batch of identities and accounts (optional)
+     * Create a batch of identities and accounts (optional), streaming generated items to the given consumer. The DB persistence of storable identity accounts
+     * is flushed periodically (every {@code accountgenerator.generation.db.flush.size} items, default 500).
      *
      * @param accountGenerationDto
      *            the parametrization DTO of the generation
-     * @return a list of generated identities and/or accounts
+     * @param jobReference
+     *            reference of the job orchestrating this batch (stored on each identity-account for later scoped deletion). May be null.
+     * @param consumer
+     *            invoked after each iteration with the generated account and its 1-based index. Must not be null.
      */
-    public List<GeneratedAccountDto> createIdentityAccountBatch( final AccountGenerationDto accountGenerationDto )
+    public void createIdentityAccountBatch( final AccountGenerationDto accountGenerationDto, final String jobReference, final GeneratedAccountConsumer consumer )
     {
+        if ( accountGenerationDto == null )
+        {
+            return;
+        }
+
         final Date generationDate = new Date( );
         final Timestamp now = Timestamp.from( Instant.now( ) );
-        final List<GeneratedAccountDto> generatedAccount = new ArrayList<>( );
+        final String password = isNotBlank( accountGenerationDto.getPassword( ) ) ? accountGenerationDto.getPassword( ) : defaultPassword;
+        final List<IdentityAccount> buffer = new ArrayList<>( DB_FLUSH_SIZE );
 
-        if ( accountGenerationDto != null )
+        for ( int i = 1; i <= accountGenerationDto.getBatchSize( ); i++ )
         {
-            // Resolve password: DTO value takes priority, then properties fallback
-            final String password = isNotBlank( accountGenerationDto.getPassword( ) ) ? accountGenerationDto.getPassword( ) : defaultPassword;
+            final GeneratedAccountDto account = generateSingle( accountGenerationDto, password, i, now );
 
-            for ( int i = 1; i <= accountGenerationDto.getBatchSize( ); i++ )
+            if ( account.isStorable( ) )
             {
-                final GeneratedAccountDto account = new GeneratedAccountDto( );
-                generatedAccount.add( account );
+                final IdentityAccount toStore = new IdentityAccount( );
+                toStore.setGuid( account.getGuid( ) );
+                toStore.setCuid( account.getCuid( ) );
+                toStore.setCreationDate( generationDate );
+                toStore.setExpirationDate( this.addDays( generationDate, accountGenerationDto.getNbDaysOfValidity( ) ) );
+                toStore.setJobReference( jobReference );
+                buffer.add( toStore );
 
-                // Build login/email: new format [loginPrefix][number][loginSuffix] or legacy format
-                final String mail = buildLogin( accountGenerationDto, i );
-                account.setPassword( password );
-                account.setEmail( mail );
-
-                // Hold errors in order to clean data if both identity and account cannot be generated
-                boolean accountError = false;
-                boolean identityError = false;
-
-                // If requested, create a Mon Paris account
-                if ( accountGenerationDto.isGenerateAccount( ) )
+                if ( buffer.size( ) >= DB_FLUSH_SIZE )
                 {
-                    // Create the account
-                    try
-                    {
-                        final ChangeAccountResponse accountCreationResponse = _accountManagementService.createAccount( mail, password, client );
-                        if ( accountCreationResponse.getResult( ) != null && Objects.equals( accountCreationResponse.getStatus( ), "OK" ) )
-                        {
-                            account.setGuid( accountCreationResponse.getResult( ).getUid( ) );
-                            // Validate the account
-                            final GetAccountResponse getAccountResponse = _accountManagementService.getAccount( account.getGuid( ), client );
-                            final AccountDto accountDto = getAccountResponse.getResult( );
-                            accountDto.setValidated( "true" );
-                            _accountManagementService.modifyAccount( accountDto, client );
-                        }
-                        else
-                        {
-                            account.getStatus( ).add( "The API refused to create the account:\n" + accountCreationResponse );
-                            accountError = true;
-                        }
-                    }
-                    catch( final IdentityAccountException e )
-                    {
-                        account.getStatus( ).add( "An exception occurred when trying to create an account: " + e.getMessage( ) );
-                        accountError = true;
-                    }
+                    IdentityAccountHome.saveAccounts( buffer );
+                    buffer.clear( );
+                }
+            }
+
+            consumer.accept( account, i );
+        }
+
+        if ( !buffer.isEmpty( ) )
+        {
+            IdentityAccountHome.saveAccounts( buffer );
+            buffer.clear( );
+        }
+    }
+
+    private GeneratedAccountDto generateSingle( final AccountGenerationDto accountGenerationDto, final String password, final int i, final Timestamp now )
+    {
+        final GeneratedAccountDto account = new GeneratedAccountDto( );
+        final String mail = buildLogin( accountGenerationDto, i );
+        account.setPassword( password );
+        account.setEmail( mail );
+
+        boolean accountError = false;
+        boolean identityError = false;
+
+        if ( accountGenerationDto.isGenerateAccount( ) )
+        {
+            try
+            {
+                final ChangeAccountResponse accountCreationResponse = _accountManagementService.createAccount( mail, password, client );
+                if ( accountCreationResponse.getResult( ) != null && Objects.equals( accountCreationResponse.getStatus( ), "OK" ) )
+                {
+                    account.setGuid( accountCreationResponse.getResult( ).getUid( ) );
+                    final GetAccountResponse getAccountResponse = _accountManagementService.getAccount( account.getGuid( ), client );
+                    final AccountDto accountDto = getAccountResponse.getResult( );
+                    accountDto.setValidated( "true" );
+                    _accountManagementService.modifyAccount( accountDto, client );
                 }
                 else
                 {
-                    account.getStatus( ).add( "No account was requested in this creation request" );
+                    account.getStatus( ).add( "The API refused to create the account:\n" + accountCreationResponse );
+                    accountError = true;
                 }
+            }
+            catch( final IdentityAccountException e )
+            {
+                account.getStatus( ).add( "An exception occurred when trying to create an account: " + e.getMessage( ) );
+                accountError = true;
+            }
+        }
+        else
+        {
+            account.getStatus( ).add( "No account was requested in this creation request" );
+        }
 
-                // Create an identity
-                if ( !accountError )
+        if ( !accountError )
+        {
+            final IdentityChangeRequest identityChange = this.buildIdentityChangeRequest( accountGenerationDto, account.getGuid( ), mail, i, now );
+            try
+            {
+                final IdentityChangeResponse createIdentityResponse = _identityService.createIdentity( identityChange, identityStoreClientCode, author );
+                AppLogService.info( "Identity creation request:\n" + identityChange );
+                if ( createIdentityResponse != null && createIdentityResponse.getStatus( ) != null
+                        && createIdentityResponse.getStatus( ).getHttpCode( ) == ResponseStatusFactory.success( ).getHttpCode( ) )
                 {
-                    final IdentityChangeRequest identityChange = this.buildIdentityChangeRequest( accountGenerationDto, account.getGuid( ), mail, i, now );
-                    try
-                    {
-                        final IdentityChangeResponse createIdentityResponse = _identityService.createIdentity( identityChange, identityStoreClientCode,
-                                author );
-                        AppLogService.info( "Identity creation request:\n" + identityChange );
-                        if ( createIdentityResponse != null && createIdentityResponse.getStatus() != null
-                                && createIdentityResponse.getStatus( ).getHttpCode( ) == ResponseStatusFactory.success( ).getHttpCode( ) )
-                        {
-                            account.setCuid( createIdentityResponse.getCustomerId( ) );
-                        }
-                        else
-                        {
-                            account.getStatus( ).add( "The API refused to create the identity:\n" + createIdentityResponse );
-                            AppLogService.error( "The API refused to create the identity:\n" + createIdentityResponse );
-                            identityError = true;
-                        }
-                    }
-                    catch( final IdentityStoreException e )
-                    {
-                        account.getStatus( ).add( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
-                        AppLogService.error( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
-                        identityError = true;
-                    }
-
-                    // Delete account in case of identity creation fail
-                    if ( identityError && accountGenerationDto.isGenerateAccount( ) )
-                    {
-                        try
-                        {
-                            final ChangeAccountResponse deleteAccount = _accountManagementService.deleteAccount( account.getGuid( ), client );
-                            account.getStatus( ).add( "Tried to delete the account (due to identity creation error): " + deleteAccount );
-                        }
-                        catch( final IdentityAccountException e )
-                        {
-                            account.getStatus( )
-                                    .add( "An exception occurred when trying to delete the account (due to identity creation error): " + e.getMessage( ) );
-                        }
-                    }
+                    account.setCuid( createIdentityResponse.getCustomerId( ) );
                 }
                 else
                 {
-                    account.getStatus( ).add( "No identity creation due to account creation error" );
+                    account.getStatus( ).add( "The API refused to create the identity:\n" + createIdentityResponse );
+                    AppLogService.error( "The API refused to create the identity:\n" + createIdentityResponse );
+                    identityError = true;
+                }
+            }
+            catch( final IdentityStoreException e )
+            {
+                account.getStatus( ).add( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
+                AppLogService.error( "An exception occurred when trying to create an identity: " + e.getMessage( ) );
+                identityError = true;
+            }
+
+            if ( identityError && accountGenerationDto.isGenerateAccount( ) )
+            {
+                try
+                {
+                    final ChangeAccountResponse deleteAccount = _accountManagementService.deleteAccount( account.getGuid( ), client );
+                    account.getStatus( ).add( "Tried to delete the account (due to identity creation error): " + deleteAccount );
+                }
+                catch( final IdentityAccountException e )
+                {
+                    account.getStatus( )
+                            .add( "An exception occurred when trying to delete the account (due to identity creation error): " + e.getMessage( ) );
                 }
             }
         }
+        else
+        {
+            account.getStatus( ).add( "No identity creation due to account creation error" );
+        }
 
-        // Store generated account for further treatments
-        final List<IdentityAccount> accounts = generatedAccount.stream( ).filter( GeneratedAccountDto::isStorable ).map( a -> {
-            final IdentityAccount account = new IdentityAccount( );
-            account.setGuid( a.getGuid( ) );
-            account.setCuid( a.getCuid( ) );
-            account.setCreationDate( generationDate );
-            account.setExpirationDate( this.addDays( generationDate, accountGenerationDto.getNbDaysOfValidity( ) ) );
-            return account;
-        } ).collect( Collectors.toList( ) );
-
-        IdentityAccountHome.saveAccounts( accounts );
-
-        return generatedAccount;
+        return account;
     }
 
     /**

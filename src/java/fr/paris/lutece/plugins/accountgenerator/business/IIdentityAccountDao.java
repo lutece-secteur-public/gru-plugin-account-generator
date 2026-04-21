@@ -46,4 +46,8 @@ public interface IIdentityAccountDao
     void save( final IdentityAccount account, final Plugin plugin );
 
     List<IdentityAccount> loadExpiredAccounts( Plugin plugin );
+
+    List<IdentityAccount> loadByJobReference( String jobReference, Plugin plugin );
+
+    void deleteByJobReference( String jobReference, Plugin plugin );
 }

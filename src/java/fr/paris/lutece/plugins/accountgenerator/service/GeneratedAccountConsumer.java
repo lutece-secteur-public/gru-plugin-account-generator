@@ -31,49 +31,22 @@
  *
  * License 1.0
  */
-package fr.paris.lutece.plugins.accountgenerator.business;
+package fr.paris.lutece.plugins.accountgenerator.service;
 
-import fr.paris.lutece.plugins.accountgenerator.AccountGeneratorPlugin;
-import fr.paris.lutece.portal.service.plugin.Plugin;
-import fr.paris.lutece.portal.service.plugin.PluginService;
-import fr.paris.lutece.portal.service.spring.SpringContextService;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.GeneratedAccountDto;
 
-import java.util.List;
-
-public class IdentityAccountHome
+/**
+ * Callback invoked after each generated account during a batch. Lets callers stream results (to a file, a progress feed, ...) without keeping the full list in
+ * memory.
+ */
+@FunctionalInterface
+public interface GeneratedAccountConsumer
 {
-
-    private static final IIdentityAccountDao _dao = SpringContextService.getBean( IIdentityAccountDao.BEAN_NAME );
-    private static final Plugin _plugin = PluginService.getPlugin( AccountGeneratorPlugin.PLUGIN_NAME );
-
-    public static void saveAccounts( final List<IdentityAccount> accounts )
-    {
-        if ( accounts != null && !accounts.isEmpty( ) )
-        {
-            _dao.bulkSave( accounts, _plugin );
-        }
-    }
-
-    public static void saveAccount( final IdentityAccount account )
-    {
-        if ( account != null )
-        {
-            _dao.save( account, _plugin );
-        }
-    }
-
-    public static List<IdentityAccount> loadExpiredAccounts( )
-    {
-        return _dao.loadExpiredAccounts( _plugin );
-    }
-
-    public static List<IdentityAccount> findByJobReference( final String jobReference )
-    {
-        return _dao.loadByJobReference( jobReference, _plugin );
-    }
-
-    public static void deleteByJobReference( final String jobReference )
-    {
-        _dao.deleteByJobReference( jobReference, _plugin );
-    }
+    /**
+     * @param account
+     *            the generated account (may have no GUID / CUID on error)
+     * @param iterationIndex
+     *            1-based index within the batch
+     */
+    void accept( GeneratedAccountDto account, int iterationIndex );
 }

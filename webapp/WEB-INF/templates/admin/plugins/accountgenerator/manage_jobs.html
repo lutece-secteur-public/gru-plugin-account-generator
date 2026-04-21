@@ -1,0 +1,45 @@
+<@box>
+    <@boxHeader title='#i18n{accountgenerator.manage_jobs.title}'>
+        <@aButton title='#i18n{accountgenerator.manage_jobs.buttonNew}' href='jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp?view=createJob' buttonIcon='plus me-1 mr-1' color='primary' />
+    </@boxHeader>
+    <@boxBody>
+        <#if jobs?? && (jobs?size > 0)>
+            <@table headBody=true>
+                <@tr>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnReference}</@th>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnCreationDate}</@th>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnUser}</@th>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnStatus}</@th>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnProgress}</@th>
+                    <@th>#i18n{accountgenerator.manage_jobs.columnActions}</@th>
+                </@tr>
+                <@tableHeadBodySeparator />
+                <#list jobs as job>
+                    <@tr>
+                        <@td><code>${job.reference}</code></@td>
+                        <@td>${job.creationDate?string('dd/MM/yyyy HH:mm:ss')}</@td>
+                        <@td>${job.user!""}</@td>
+                        <@td>
+                            <#assign status = job.status.name() />
+                            <#if status == "COMPLETED">
+                                <span class="badge bg-success">#i18n{accountgenerator.job.status.completed}</span>
+                            <#elseif status == "IN_PROGRESS">
+                                <span class="badge bg-info">#i18n{accountgenerator.job.status.inProgress}</span>
+                            <#elseif status == "PENDING">
+                                <span class="badge bg-secondary">#i18n{accountgenerator.job.status.pending}</span>
+                            <#else>
+                                <span class="badge bg-danger">#i18n{accountgenerator.job.status.failed}</span>
+                            </#if>
+                        </@td>
+                        <@td>${job.nbProcessed} / ${job.batchSize}</@td>
+                        <@td>
+                            <@aButton title='#i18n{accountgenerator.manage_jobs.buttonView}' href='jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp?view=viewJob&reference=${job.reference}' buttonIcon='eye me-1 mr-1' size='sm' />
+                        </@td>
+                    </@tr>
+                </#list>
+            </@table>
+        <#else>
+            <div class="alert alert-info">#i18n{accountgenerator.manage_jobs.empty}</div>
+        </#if>
+    </@boxBody>
+</@box>
