@@ -41,8 +41,7 @@ import fr.paris.lutece.plugins.accountgenerator.service.file.implementation.Loca
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.AccountGenerationDto;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.GeneratedAccountDto;
 import fr.paris.lutece.plugins.identitystore.web.exception.RequestFormatException;
-import fr.paris.lutece.portal.service.file.FileService;
-import fr.paris.lutece.portal.service.file.IFileStoreServiceProvider;
+
 import fr.paris.lutece.portal.service.progressmanager.ProgressManagerService;
 import fr.paris.lutece.portal.service.spring.SpringContextService;
 import fr.paris.lutece.portal.service.util.AppLogService;
@@ -157,13 +156,27 @@ public class AccountGenerationJobService
     /**
      * Build a backoffice download URL for a completed job, or {@code null} if no file is available yet (or has been deleted).
      */
-    public String getDownloadUrl( final AccountGenerationJob job )
+    public boolean hasDownloadableFile( final AccountGenerationJob job )
+    {
+        if ( job == null || job.getFileKey( ) == null || job.getAccountsDeletionDate( ) != null )
+        {
+            return false;
+        }
+        final Path csvPath = getFileStoreService( ).getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
+        return Files.exists( csvPath );
+    }
+
+    /**
+     * Return the {@link Path} to the CSV file for the given job, or {@code null} if not available.
+     */
+    public Path getCsvPath( final AccountGenerationJob job )
     {
         if ( job == null || job.getFileKey( ) == null || job.getAccountsDeletionDate( ) != null )
         {
             return null;
         }
-        return getFileStoreService( ).getFileDownloadUrlBO( job.getFileKey( ) );
+        final Path csvPath = getFileStoreService( ).getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
+        return Files.exists( csvPath ) ? csvPath : null;
     }
 
     /**
@@ -176,7 +189,7 @@ public class AccountGenerationJobService
         {
             return java.util.Collections.emptyList( );
         }
-        final LocalFileSystemDirectoryFileService localProvider = (LocalFileSystemDirectoryFileService) getFileStoreService( );
+        final LocalFileSystemDirectoryFileService localProvider = getFileStoreService( );
         final Path csvPath = localProvider.getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
         if ( !Files.exists( csvPath ) )
         {
@@ -222,7 +235,7 @@ public class AccountGenerationJobService
 
         if ( job.getFileKey( ) != null )
         {
-            final LocalFileSystemDirectoryFileService localProvider = (LocalFileSystemDirectoryFileService) getFileStoreService( );
+            final LocalFileSystemDirectoryFileService localProvider = getFileStoreService( );
             final Path csvPath = localProvider.getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
             try
             {
@@ -241,15 +254,17 @@ public class AccountGenerationJobService
 
     private void runJob( final AccountGenerationJob job, final AccountGenerationDto dto, final String feedToken )
     {
+        AppLogService.info( "AccountGenerator - runJob START for job " + job.getReference( ) + " (id=" + job.getId( ) + ", batchSize=" + dto.getBatchSize( ) + ")" );
+
         final ProgressManagerService progress = ProgressManagerService.getInstance( );
-        final IFileStoreServiceProvider fileStoreService = getFileStoreService( );
-        final LocalFileSystemDirectoryFileService localProvider = (LocalFileSystemDirectoryFileService) fileStoreService;
+        final LocalFileSystemDirectoryFileService localProvider = getFileStoreService( );
 
         final String fileName = "accountgenerator-" + job.getReference( ) + ".csv";
         final Path csvPath = localProvider.getStorageDir( ).toPath( ).resolve( fileName );
 
         job.setStatus( AccountGenerationJobStatus.IN_PROGRESS );
         AccountGenerationJobHome.update( job );
+        AppLogService.info( "AccountGenerator - runJob " + job.getReference( ) + " status set to IN_PROGRESS" );
         progress.addReport( feedToken, "Job " + job.getReference( ) + " started (batch size: " + dto.getBatchSize( ) + ")" );
 
         BufferedWriter writer = null;
@@ -317,13 +332,20 @@ public class AccountGenerationJobService
             AccountGenerationJobHome.update( job );
             progress.addReport( feedToken, "Job completed: " + successCount[0] + " success, " + failureCount[0] + " failure" );
         }
-        catch( final Exception e )
+        catch( final Throwable e )
         {
-            AppLogService.error( "Job " + job.getReference( ) + " failed", e );
-            job.setStatus( AccountGenerationJobStatus.FAILED );
-            job.setCompletionDate( Timestamp.from( Instant.now( ) ) );
-            job.setErrorMessage( e.getClass( ).getSimpleName( ) + ": " + e.getMessage( ) );
-            AccountGenerationJobHome.update( job );
+            AppLogService.error( "AccountGenerator - Job " + job.getReference( ) + " failed", e );
+            try
+            {
+                job.setStatus( AccountGenerationJobStatus.FAILED );
+                job.setCompletionDate( Timestamp.from( Instant.now( ) ) );
+                job.setErrorMessage( e.getClass( ).getSimpleName( ) + ": " + e.getMessage( ) );
+                AccountGenerationJobHome.update( job );
+            }
+            catch( final Throwable dbError )
+            {
+                AppLogService.error( "AccountGenerator - Could not update job " + job.getReference( ) + " to FAILED status (id=" + job.getId( ) + ")", dbError );
+            }
             progress.addReport( feedToken, "Job failed: " + e.getMessage( ) );
         }
         finally
@@ -338,8 +360,20 @@ public class AccountGenerationJobService
                 {
                 }
             }
-            _feedTokens.remove( job.getReference( ) );
-            progress.unRegisterFeed( feedToken );
+            // Delay feed cleanup so the browser-side @progress JS can detect 100% before the feed disappears
+            final String refToClean = job.getReference( );
+            new Thread( ( ) -> {
+                try
+                {
+                    Thread.sleep( 15000 );
+                }
+                catch( final InterruptedException ie )
+                {
+                    Thread.currentThread( ).interrupt( );
+                }
+                _feedTokens.remove( refToClean );
+                progress.unRegisterFeed( feedToken );
+            } ).start( );
         }
     }
 
@@ -358,8 +392,8 @@ public class AccountGenerationJobService
         return value.replace( CSV_SEPARATOR, " " ).replace( "\n", " " ).replace( "\r", " " );
     }
 
-    private static IFileStoreServiceProvider getFileStoreService( )
+    private static LocalFileSystemDirectoryFileService getFileStoreService( )
     {
-        return FileService.getInstance( ).getFileStoreServiceProvider( FILE_PROVIDER_NAME );
+        return SpringContextService.getBean( FILE_PROVIDER_NAME );
     }
 }

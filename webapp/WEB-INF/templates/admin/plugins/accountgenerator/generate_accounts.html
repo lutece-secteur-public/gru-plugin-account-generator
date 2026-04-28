@@ -1,3 +1,4 @@
+<@messages errors=errors infos=infos warnings=warnings />
 <@box>
     <@boxHeader title='#i18n{accountgenerator.generate_accounts.title}'>
         <@aButton title='#i18n{accountgenerator.view_job.buttonBack}' href='jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp' buttonIcon='arrow-left me-1 mr-1' size='sm' />
@@ -61,12 +62,20 @@
             <@row>
                 <@columns sm=6>
                     <@formGroup labelFor='identity_certifier' labelKey='#i18n{accountgenerator.generate_accounts.labelIdentityCertifier}' helpKey='#i18n{accountgenerator.generate_accounts.helpIdentityCertifier}'>
-                        <@input type='text' name='identity_certifier' id='identity_certifier' value='${identity_certifier}' />
+                        <select class="form-select" name="identity_certifier" id="identity_certifier">
+                            <#list certifier_list as item>
+                                <option value="${item.code}"<#if item.code == identity_certifier> selected</#if>>${item.name}</option>
+                            </#list>
+                        </select>
                     </@formGroup>
                 </@columns>
                 <@columns sm=6>
                     <@formGroup labelFor='mail_login_certifier' labelKey='#i18n{accountgenerator.generate_accounts.labelMailLoginCertifier}' helpKey='#i18n{accountgenerator.generate_accounts.helpMailLoginCertifier}'>
-                        <@input type='text' name='mail_login_certifier' id='mail_login_certifier' value='${mail_login_certifier}' />
+                        <select class="form-select" name="mail_login_certifier" id="mail_login_certifier">
+                            <#list certifier_list as item>
+                                <option value="${item.code}"<#if item.code == mail_login_certifier> selected</#if>>${item.name}</option>
+                            </#list>
+                        </select>
                     </@formGroup>
                 </@columns>
             </@row>

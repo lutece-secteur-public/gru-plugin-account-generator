@@ -61,11 +61,26 @@
     </bean>
 
     <!-- Service impl -->
+    <bean id="accountgenerator.referential.httpAccessTransport" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.HttpAccessTransport" >
+            <property name="apiEndPointUrl">
+               <value>${accountgenerator.identitystore.referential.apiEndPointUrl}</value>
+            </property>
+     </bean>
+    
     <bean id="accountgenerator.identityService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.IdentityService">
         <constructor-arg ref="accountgenerator.restTransport.httpAccess"/>
     </bean>
     <bean id="accountgenerator.accountManagementService" class="fr.paris.lutece.plugins.accountmanagement.web.service.AccountManagementService">
         <constructor-arg ref="accountgenerator.restAccountManagementTransport.httpAccess"/>
+    </bean>
+
+    <!-- Referential service (certification processus list) -->
+    <bean id="accountgenerator.referentialTransport.httpAccess" class="fr.paris.lutece.plugins.identitystore.v3.web.rs.service.ReferentialTransportRest">
+        <constructor-arg ref="accountgenerator.referential.httpAccessTransport"/>
+        <constructor-arg value="${accountgenerator.identitystore.identityPath}"/>
+    </bean>
+    <bean id="accountgenerator.referentialService" class="fr.paris.lutece.plugins.identitystore.v3.web.service.ReferentialService">
+        <constructor-arg ref="accountgenerator.referentialTransport.httpAccess"/>
     </bean>
 
     <!-- REST -->

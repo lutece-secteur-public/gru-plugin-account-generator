@@ -142,7 +142,7 @@ public class AccountGeneratorRestService
             response.setProgressPercent( (int) ( job.getNbProcessed( ) * 100.0 / job.getBatchSize( ) + 0.5 ) );
         }
 
-        response.setDownloadUrl( AccountGenerationJobService.instance( ).getDownloadUrl( job ) );
+        response.setDownloadUrl( AccountGenerationJobService.instance( ).hasDownloadableFile( job ) ? job.getFileKey( ) : null );
         return response;
     }
 }

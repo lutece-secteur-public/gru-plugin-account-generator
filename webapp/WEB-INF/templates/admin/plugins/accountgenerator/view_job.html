@@ -56,6 +56,21 @@
             <hr/>
             <h5>#i18n{accountgenerator.view_job.titleProgress}</h5>
             <@progress token='${feed_token}' showReport=true intervalTime=2000 />
+            <script>
+            (function() {
+                var checkDone = setInterval(function() {
+                    var bar = document.getElementById('progressbar');
+                    if (bar) {
+                        var now = parseInt(bar.getAttribute('aria-valuenow') || '0');
+                        var max = parseInt(bar.getAttribute('aria-valuemax') || '100');
+                        if (now >= max) {
+                            clearInterval(checkDone);
+                            setTimeout(function() { window.location.reload(); }, 3000);
+                        }
+                    }
+                }, 2000);
+            })();
+            </script>
         <#elseif progress_percent??>
             <hr/>
             <div class="progress">

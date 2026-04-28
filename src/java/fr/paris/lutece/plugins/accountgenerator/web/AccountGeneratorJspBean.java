@@ -36,16 +36,23 @@ package fr.paris.lutece.plugins.accountgenerator.web;
 import fr.paris.lutece.plugins.accountgenerator.business.AccountGenerationJob;
 import fr.paris.lutece.plugins.accountgenerator.service.AccountGenerationJobService;
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.AccountGenerationDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.AuthorType;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.common.RequestAuthor;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.referentiel.AttributeCertificationProcessusDto;
+import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.referentiel.ProcessusSearchResponse;
+import fr.paris.lutece.plugins.identitystore.v3.web.service.ReferentialService;
 import fr.paris.lutece.plugins.identitystore.web.exception.RequestFormatException;
 import fr.paris.lutece.portal.service.admin.AccessDeniedException;
 import fr.paris.lutece.portal.service.progressmanager.ProgressManagerService;
 import fr.paris.lutece.portal.service.security.SecurityTokenService;
+import fr.paris.lutece.portal.service.spring.SpringContextService;
 import fr.paris.lutece.portal.service.util.AppLogService;
 import fr.paris.lutece.portal.service.util.AppPropertiesService;
 import fr.paris.lutece.portal.util.mvc.admin.MVCAdminJspBean;
 import fr.paris.lutece.portal.util.mvc.admin.annotations.Controller;
 import fr.paris.lutece.portal.util.mvc.commons.annotations.Action;
 import fr.paris.lutece.portal.util.mvc.commons.annotations.View;
+import fr.paris.lutece.util.ReferenceList;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -118,10 +125,18 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String MARK_PREVIEW_SIZE = "preview_size";
     private static final String MARK_DELETE_TOKEN = "delete_token";
 
+    private static final String MARK_CERTIFIER_LIST = "certifier_list";
+
     private static final int PREVIEW_SIZE = AppPropertiesService.getPropertyInt( "accountgenerator.view.preview.size", 20 );
 
     private static final String ERROR_INVALID_PARAMETERS = "accountgenerator.error.generation.invalidParameters";
     private static final String ERROR_JOB_NOT_FOUND = "accountgenerator.error.job.notFound";
+    private static final String ERROR_FIELD_LOGIN_PREFIX = "accountgenerator.error.field.loginPrefix";
+    private static final String ERROR_FIELD_LOGIN_SUFFIX = "accountgenerator.error.field.loginSuffix";
+    private static final String ERROR_FIELD_BATCH_SIZE = "accountgenerator.error.field.batchSize";
+    private static final String ERROR_FIELD_NB_DAYS = "accountgenerator.error.field.nbDaysOfValidity";
+    private static final String ERROR_FIELD_OFFSET = "accountgenerator.error.field.generationIncrementOffset";
+    private static final String ERROR_FIELD_BIRTHDATE = "accountgenerator.error.field.birthdate";
     private static final String INFO_JOB_SUBMITTED = "accountgenerator.info.job.submitted";
     private static final String INFO_ACCOUNTS_DELETED = "accountgenerator.info.job.accountsDeleted";
 
@@ -159,9 +174,37 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         model.put( FIELD_IDENTITY_CERTIFIER, getFormValue( FIELD_IDENTITY_CERTIFIER, DEFAULT_IDENTITY_CERTIFIER ) );
         model.put( FIELD_MAIL_LOGIN_CERTIFIER, getFormValue( FIELD_MAIL_LOGIN_CERTIFIER, DEFAULT_MAIL_LOGIN_CERTIFIER ) );
         model.put( FIELD_GENERATE_ACCOUNT, _lastFormValues == null || _lastFormValues.containsKey( FIELD_GENERATE_ACCOUNT ) );
+        model.put( MARK_CERTIFIER_LIST, loadCertifierList( ) );
 
         model.put( SecurityTokenService.MARK_TOKEN, SecurityTokenService.getInstance( ).getToken( request, ACTION_SUBMIT_JOB ) );
         return getPage( PROPERTY_PAGE_TITLE_CREATE, TEMPLATE_CREATE_JOB, model );
+    }
+
+    private ReferenceList loadCertifierList( )
+    {
+        final ReferenceList list = new ReferenceList( );
+        try
+        {
+            final ReferentialService referentialService = SpringContextService.getBean( "accountgenerator.referentialService" );
+            final RequestAuthor author = new RequestAuthor( );
+            author.setType( AuthorType.application );
+            author.setName( AppPropertiesService.getProperty( "accountgenerator.accountManagement.client-name", "AccountGenerator" ) );
+
+            final String clientCode = AppPropertiesService.getProperty( "accountgenerator.accountManagement.client-code", "TEST" );
+            final ProcessusSearchResponse response = referentialService.getProcessList( clientCode, author );
+            if ( response != null && response.getProcessus( ) != null )
+            {
+                for ( final AttributeCertificationProcessusDto processus : response.getProcessus( ) )
+                {
+                    list.addItem( processus.getCode( ), processus.getLabel( ) );
+                }
+            }
+        }
+        catch( final Exception e )
+        {
+            AppLogService.error( "Failed to load certification processus list", e );
+        }
+        return list;
     }
 
     @View( VIEW_JOB_DETAIL )
@@ -194,10 +237,9 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
             model.put( MARK_PROGRESS_PERCENT, (int) ( job.getNbProcessed( ) * 100.0 / job.getBatchSize( ) + 0.5 ) );
         }
 
-        final String downloadUrl = AccountGenerationJobService.instance( ).getDownloadUrl( job );
-        if ( downloadUrl != null )
+        if ( AccountGenerationJobService.instance( ).hasDownloadableFile( job ) )
         {
-            model.put( MARK_DOWNLOAD_URL, downloadUrl );
+            model.put( MARK_DOWNLOAD_URL, "jsp/admin/plugins/accountgenerator/DownloadCsv.jsp?reference=" + job.getReference( ) );
         }
 
         model.put( MARK_PREVIEW_ROWS, AccountGenerationJobService.instance( ).getCsvPreview( job, PREVIEW_SIZE ) );
@@ -258,6 +300,12 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
             return redirectView( request, VIEW_CREATE_JOB );
         }
 
+        // Field-level validation
+        if ( !validateDto( dto ) )
+        {
+            return redirectView( request, VIEW_CREATE_JOB );
+        }
+
         try
         {
             final String user = getUser( ) != null ? getUser( ).getAccessCode( ) : null;
@@ -277,6 +325,52 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
             addError( e.getMessage( ) );
             return redirectView( request, VIEW_CREATE_JOB );
         }
+    }
+
+    private boolean validateDto( final AccountGenerationDto dto )
+    {
+        boolean valid = true;
+
+        if ( dto.getLoginPrefix( ) == null || dto.getLoginPrefix( ).isEmpty( ) )
+        {
+            addError( ERROR_FIELD_LOGIN_PREFIX, getLocale( ) );
+            valid = false;
+        }
+        if ( dto.getLoginSuffix( ) == null || dto.getLoginSuffix( ).isEmpty( ) )
+        {
+            addError( ERROR_FIELD_LOGIN_SUFFIX, getLocale( ) );
+            valid = false;
+        }
+        if ( dto.getBatchSize( ) <= 0 || dto.getBatchSize( ) > GENERATION_LIMIT )
+        {
+            addError( fr.paris.lutece.portal.service.i18n.I18nService.getLocalizedString( ERROR_FIELD_BATCH_SIZE,
+                    new String [ ] { String.valueOf( GENERATION_LIMIT ) }, getLocale( ) ) );
+            valid = false;
+        }
+        if ( dto.getNbDaysOfValidity( ) <= 0 )
+        {
+            addError( ERROR_FIELD_NB_DAYS, getLocale( ) );
+            valid = false;
+        }
+        if ( dto.getGenerationIncrementOffset( ) < 0 )
+        {
+            addError( ERROR_FIELD_OFFSET, getLocale( ) );
+            valid = false;
+        }
+        if ( dto.getBirthdate( ) != null && !dto.getBirthdate( ).isEmpty( ) )
+        {
+            try
+            {
+                java.time.LocalDate.parse( dto.getBirthdate( ).trim( ), java.time.format.DateTimeFormatter.ofPattern( "dd/MM/yyyy" ) );
+            }
+            catch( final java.time.format.DateTimeParseException e )
+            {
+                addError( ERROR_FIELD_BIRTHDATE, getLocale( ) );
+                valid = false;
+            }
+        }
+
+        return valid;
     }
 
     private String getFormValue( final String key, final String defaultValue )

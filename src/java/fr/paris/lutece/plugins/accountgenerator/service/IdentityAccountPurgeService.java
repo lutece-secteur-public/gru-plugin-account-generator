@@ -142,7 +142,7 @@ public class IdentityAccountPurgeService
             {
                 try
                 {
-                    final IdentityChangeResponse deletedIdentityResponse = _identityService.deleteIdentity( account.getGuid( ), identityStoreClientCode,
+                    final IdentityChangeResponse deletedIdentityResponse = _identityService.deleteIdentity( account.getCuid( ), identityStoreClientCode,
                             author );
                     AppLogService.debug( "Tried to delete identity " + account.getCuid( ) + " : " + deletedIdentityResponse );
                     if ( deletedIdentityResponse.getStatus( ).getHttpCode( ) == 200 || deletedIdentityResponse.getStatus( ).getHttpCode( ) == 201 )
