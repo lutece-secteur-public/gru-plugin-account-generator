@@ -52,25 +52,74 @@
             </#if>
         </dl>
 
+        <#if feed_token?? || deletion_feed_token??>
+            <#-- Self-contained progress UI: avoids the @progress macro because the admin theme loads
+                 progress-manager.js globally AND the macro instantiates LuteceProgress, which results
+                 in two concurrent pollers — duplicating lines and emitting empty-timestamp lines on
+                 every empty server response. Here we poll once and only render a timestamp when
+                 there are actually new report lines. -->
+            <script>
+            window.agProgressFeed = window.agProgressFeed || function( token, barId, reportId, intervalTime ) {
+                var bar = document.getElementById( barId );
+                var reportElem = document.getElementById( reportId );
+                var lastLine = 0;
+                var done = false;
+                var reloadScheduled = false;
+                function pollProgress() {
+                    fetch( 'servlet/plugins/core/progressManager/progressFeed?progress&token=' + encodeURIComponent( token ), { method: 'POST' } )
+                        .then( function( r ) { return r.json(); } )
+                        .then( function( data ) {
+                            if ( data.status === 'ERROR' ) { return; }
+                            var pct = parseInt( data.result );
+                            if ( isNaN( pct ) ) { return; }
+                            bar.style.width = pct + '%';
+                            bar.setAttribute( 'aria-valuenow', pct );
+                            bar.innerHTML = pct + ' /100';
+                            if ( pct >= 100 && !reloadScheduled ) {
+                                reloadScheduled = true;
+                                done = true;
+                                setTimeout( function() { window.location.reload(); }, 3000 );
+                            }
+                        } )
+                        .catch( function() {} );
+                }
+                function pollReport() {
+                    fetch( 'servlet/plugins/core/progressManager/progressFeed?report&fromLine=' + lastLine + '&token=' + encodeURIComponent( token ), { method: 'POST' } )
+                        .then( function( r ) { return r.json(); } )
+                        .then( function( data ) {
+                            if ( data.status === 'ERROR' || !data.result ) { return; }
+                            var incoming = parseInt( data.result.lastLine );
+                            if ( isNaN( incoming ) ) { return; }
+                            var lines = data.result.lines || [];
+                            if ( incoming > lastLine && lines.length > 0 ) {
+                                var newCount = incoming - lastLine;
+                                var newLines = lines.slice( -newCount );
+                                var time = new Date().toLocaleTimeString( document.documentElement.lang );
+                                reportElem.innerHTML += time + '<br />' + newLines.join( '<br />' ) + '<br />';
+                            }
+                            lastLine = incoming;
+                        } )
+                        .catch( function() {} );
+                }
+                function tick() {
+                    if ( done ) { return; }
+                    pollProgress();
+                    pollReport();
+                    setTimeout( tick, intervalTime );
+                }
+                tick();
+            };
+            </script>
+        </#if>
+
         <#if feed_token??>
             <hr/>
             <h5>#i18n{accountgenerator.view_job.titleProgress}</h5>
-            <@progress token='${feed_token}' showReport=true intervalTime=2000 />
-            <script>
-            (function() {
-                var checkDone = setInterval(function() {
-                    var bar = document.getElementById('progressbar');
-                    if (bar) {
-                        var now = parseInt(bar.getAttribute('aria-valuenow') || '0');
-                        var max = parseInt(bar.getAttribute('aria-valuemax') || '100');
-                        if (now >= max) {
-                            clearInterval(checkDone);
-                            setTimeout(function() { window.location.reload(); }, 3000);
-                        }
-                    }
-                }, 2000);
-            })();
-            </script>
+            <div class="progress">
+                <div id="ag-progressbar" class="progress-bar progress-bar-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 /100</div>
+            </div>
+            <div id="ag-progressbar-report" class="progress-bar-report"></div>
+            <script>agProgressFeed('${feed_token}', 'ag-progressbar', 'ag-progressbar-report', 2000);</script>
         <#elseif progress_percent??>
             <hr/>
             <div class="progress">
@@ -80,7 +129,7 @@
 
         <#if preview_rows?? && (preview_rows?size > 0)>
             <hr/>
-            <h5>#i18n{accountgenerator.view_job.titlePreview} <small class="text-muted">(#i18n{accountgenerator.view_job.previewHelp} ${preview_size})</small></h5>
+            <h5>#i18n{accountgenerator.view_job.titlePreview} <small class="text-muted">(#i18n{accountgenerator.view_job.previewHelp})</small></h5>
             <@table headBody=true>
                 <@tr>
                     <@th>#</@th>
@@ -92,7 +141,7 @@
                 <@tableHeadBodySeparator />
                 <#list preview_rows as row>
                     <@tr>
-                        <@td>${row_index + 1}</@td>
+                        <@td><#if row_index == 0>1<#else>${job.nbProcessed}</#if></@td>
                         <@td>${(row[0])!""}</@td>
                         <@td>${(row[1])!""}</@td>
                         <@td>${(row[2])!""}</@td>
@@ -112,7 +161,15 @@
             </div>
         </#if>
 
-        <#if (job.status.name() == "COMPLETED") && !job.accountsDeletionDate?? && (job.nbSuccess > 0)>
+        <#if deletion_feed_token??>
+            <hr/>
+            <h5>#i18n{accountgenerator.view_job.titleDeletionProgress}</h5>
+            <div class="progress">
+                <div id="ag-deletion-progressbar" class="progress-bar progress-bar-danger" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 /100</div>
+            </div>
+            <div id="ag-deletion-progressbar-report" class="progress-bar-report"></div>
+            <script>agProgressFeed('${deletion_feed_token}', 'ag-deletion-progressbar', 'ag-deletion-progressbar-report', 2000);</script>
+        <#elseif (job.status.name() == "COMPLETED") && !job.accountsDeletionDate?? && (job.nbSuccess > 0)>
             <hr/>
             <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp" onsubmit="return confirm('#i18n{accountgenerator.view_job.confirmDelete}');">
                 <input type="hidden" name="action" value="deleteJobAccounts" />

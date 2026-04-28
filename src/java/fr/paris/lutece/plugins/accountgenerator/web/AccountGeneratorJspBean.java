@@ -119,15 +119,13 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String MARK_JOB = "job";
     private static final String MARK_GENERATION_LIMIT = "generation_limit";
     private static final String MARK_FEED_TOKEN = "feed_token";
+    private static final String MARK_DELETION_FEED_TOKEN = "deletion_feed_token";
     private static final String MARK_PROGRESS_PERCENT = "progress_percent";
     private static final String MARK_DOWNLOAD_URL = "download_url";
     private static final String MARK_PREVIEW_ROWS = "preview_rows";
-    private static final String MARK_PREVIEW_SIZE = "preview_size";
     private static final String MARK_DELETE_TOKEN = "delete_token";
 
     private static final String MARK_CERTIFIER_LIST = "certifier_list";
-
-    private static final int PREVIEW_SIZE = AppPropertiesService.getPropertyInt( "accountgenerator.view.preview.size", 20 );
 
     private static final String ERROR_INVALID_PARAMETERS = "accountgenerator.error.generation.invalidParameters";
     private static final String ERROR_JOB_NOT_FOUND = "accountgenerator.error.job.notFound";
@@ -138,7 +136,7 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String ERROR_FIELD_OFFSET = "accountgenerator.error.field.generationIncrementOffset";
     private static final String ERROR_FIELD_BIRTHDATE = "accountgenerator.error.field.birthdate";
     private static final String INFO_JOB_SUBMITTED = "accountgenerator.info.job.submitted";
-    private static final String INFO_ACCOUNTS_DELETED = "accountgenerator.info.job.accountsDeleted";
+    private static final String INFO_DELETION_SUBMITTED = "accountgenerator.info.job.deletionSubmitted";
 
     private static final String ACTION_DELETE_JOB_ACCOUNTS = "deleteJobAccounts";
 
@@ -237,13 +235,18 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
             model.put( MARK_PROGRESS_PERCENT, (int) ( job.getNbProcessed( ) * 100.0 / job.getBatchSize( ) + 0.5 ) );
         }
 
+        final String deletionFeedToken = AccountGenerationJobService.instance( ).getDeletionProgressFeedToken( job.getReference( ) );
+        if ( deletionFeedToken != null )
+        {
+            model.put( MARK_DELETION_FEED_TOKEN, deletionFeedToken );
+        }
+
         if ( AccountGenerationJobService.instance( ).hasDownloadableFile( job ) )
         {
             model.put( MARK_DOWNLOAD_URL, "jsp/admin/plugins/accountgenerator/DownloadCsv.jsp?reference=" + job.getReference( ) );
         }
 
-        model.put( MARK_PREVIEW_ROWS, AccountGenerationJobService.instance( ).getCsvPreview( job, PREVIEW_SIZE ) );
-        model.put( MARK_PREVIEW_SIZE, PREVIEW_SIZE );
+        model.put( MARK_PREVIEW_ROWS, AccountGenerationJobService.instance( ).getCsvFirstAndLast( job ) );
         model.put( MARK_DELETE_TOKEN, SecurityTokenService.getInstance( ).getToken( request, ACTION_DELETE_JOB_ACCOUNTS ) );
 
         return getPage( PROPERTY_PAGE_TITLE_VIEW, TEMPLATE_VIEW_JOB, model );
@@ -269,7 +272,7 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
                 addError( ERROR_JOB_NOT_FOUND, getLocale( ) );
                 return redirectView( request, VIEW_MANAGE_JOBS );
             }
-            addInfo( INFO_ACCOUNTS_DELETED, getLocale( ) );
+            addInfo( INFO_DELETION_SUBMITTED, getLocale( ) );
         }
         catch( final Exception e )
         {
