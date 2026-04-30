@@ -77,7 +77,7 @@ public class AccountGeneratorRestService
         try
         {
             final AccountGenerationJob job = AccountGenerationJobService.instance( ).submit( accountGenerationRequest.getAccountGenerationDto( ),
-                    strHeaderClientCode, strHeaderAppCode, authorName, authorType, authorName );
+                    strHeaderClientCode, strHeaderAppCode, authorName, authorType, authorName, null );
 
             final AccountGenerationJobResponse response = new AccountGenerationJobResponse( );
             response.setReference( job.getReference( ) );

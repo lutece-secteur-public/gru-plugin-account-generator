@@ -266,7 +266,8 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         }
         try
         {
-            final AccountGenerationJob job = AccountGenerationJobService.instance( ).deleteGeneratedAccounts( reference );
+            final String userEmail = getUser( ) != null ? getUser( ).getEmail( ) : null;
+            final AccountGenerationJob job = AccountGenerationJobService.instance( ).deleteGeneratedAccounts( reference, userEmail );
             if ( job == null )
             {
                 addError( ERROR_JOB_NOT_FOUND, getLocale( ) );
@@ -312,7 +313,8 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         try
         {
             final String user = getUser( ) != null ? getUser( ).getAccessCode( ) : null;
-            final AccountGenerationJob job = AccountGenerationJobService.instance( ).submit( dto, "BO", "accountgenerator-admin", user, "admin", user );
+            final String userEmail = getUser( ) != null ? getUser( ).getEmail( ) : null;
+            final AccountGenerationJob job = AccountGenerationJobService.instance( ).submit( dto, "BO", "accountgenerator-admin", user, "admin", user, userEmail );
             _lastFormValues = null;
             addInfo( INFO_JOB_SUBMITTED, getLocale( ) );
             return redirect( request, VIEW_JOB_DETAIL, Collections.singletonMap( PARAMETER_REFERENCE, job.getReference( ) ) );

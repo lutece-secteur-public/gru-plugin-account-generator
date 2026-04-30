@@ -42,9 +42,11 @@ import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.Acc
 import fr.paris.lutece.plugins.identitystore.v3.web.rs.dto.account.generator.GeneratedAccountDto;
 import fr.paris.lutece.plugins.identitystore.web.exception.RequestFormatException;
 
+import fr.paris.lutece.portal.service.mail.MailService;
 import fr.paris.lutece.portal.service.progressmanager.ProgressManagerService;
 import fr.paris.lutece.portal.service.spring.SpringContextService;
 import fr.paris.lutece.portal.service.util.AppLogService;
+import fr.paris.lutece.portal.service.util.AppPathService;
 import fr.paris.lutece.portal.service.util.AppPropertiesService;
 
 import java.io.BufferedReader;
@@ -101,7 +103,7 @@ public class AccountGenerationJobService
      * insert).
      */
     public AccountGenerationJob submit( final AccountGenerationDto dto, final String clientCode, final String appCode, final String authorName,
-            final String authorType, final String user ) throws RequestFormatException
+            final String authorType, final String user, final String userEmail ) throws RequestFormatException
     {
         AccountGenerationJobValidationService.instance( ).validate( dto );
 
@@ -110,6 +112,7 @@ public class AccountGenerationJobService
         job.setStatus( AccountGenerationJobStatus.PENDING );
         job.setCreationDate( Timestamp.from( Instant.now( ) ) );
         job.setUser( user );
+        job.setUserEmail( userEmail );
         job.setClientCode( clientCode );
         job.setAppCode( appCode );
         job.setAuthorName( authorName );
@@ -238,7 +241,7 @@ public class AccountGenerationJobService
      * the local DB, then removal of the CSV file and stamping of the job with an accounts-deletion timestamp. Returns immediately with the (still un-stamped)
      * job. Idempotent: a no-op if the deletion is already in progress or already completed.
      */
-    public synchronized AccountGenerationJob deleteGeneratedAccounts( final String reference )
+    public synchronized AccountGenerationJob deleteGeneratedAccounts( final String reference, final String userEmail )
     {
         final Optional<AccountGenerationJob> optJob = AccountGenerationJobHome.findByReference( reference );
         if ( !optJob.isPresent( ) )
@@ -249,6 +252,12 @@ public class AccountGenerationJobService
         if ( job.getAccountsDeletionDate( ) != null || _deletionFeedTokens.containsKey( reference ) )
         {
             return job;
+        }
+
+        if ( userEmail != null && !userEmail.isEmpty( ) )
+        {
+            job.setUserEmail( userEmail );
+            AccountGenerationJobHome.update( job );
         }
 
         final int total = Math.max( IdentityAccountPurgeService.instance( ).countByJobReference( reference ), 1 );
@@ -292,11 +301,13 @@ public class AccountGenerationJobService
             job.setAccountsDeletionDate( Timestamp.from( Instant.now( ) ) );
             AccountGenerationJobHome.update( job );
             progress.addReport( feedToken, "Deletion completed" );
+            sendCompletionMail( job, true, true );
         }
         catch( final Throwable e )
         {
             AppLogService.error( "AccountGenerator - Deletion of job " + job.getReference( ) + " failed", e );
             progress.addReport( feedToken, "Deletion failed: " + e.getMessage( ) );
+            sendCompletionMail( job, true, false );
         }
         finally
         {
@@ -396,6 +407,7 @@ public class AccountGenerationJobService
             job.setFileName( fileName );
             AccountGenerationJobHome.update( job );
             progress.addReport( feedToken, "Job completed: " + successCount[0] + " success, " + failureCount[0] + " failure" );
+            sendCompletionMail( job, false, true );
         }
         catch( final Throwable e )
         {
@@ -412,6 +424,7 @@ public class AccountGenerationJobService
                 AppLogService.error( "AccountGenerator - Could not update job " + job.getReference( ) + " to FAILED status (id=" + job.getId( ) + ")", dbError );
             }
             progress.addReport( feedToken, "Job failed: " + e.getMessage( ) );
+            sendCompletionMail( job, false, false );
         }
         finally
         {
@@ -460,5 +473,41 @@ public class AccountGenerationJobService
     private static LocalFileSystemDirectoryFileService getFileStoreService( )
     {
         return SpringContextService.getBean( FILE_PROVIDER_NAME );
+    }
+
+    private static void sendCompletionMail( final AccountGenerationJob job, final boolean isDeletion, final boolean success )
+    {
+        final String recipient = job.getUserEmail( );
+        if ( recipient == null || recipient.isEmpty( ) )
+        {
+            return;
+        }
+        final String senderEmail = AppPropertiesService.getProperty( "accountgenerator.notification.sender.email", MailService.getNoReplyEmail( ) );
+        final String senderName = AppPropertiesService.getProperty( "accountgenerator.notification.sender.name", "AccountGenerator" );
+        final String prodUrl = AppPathService.getProdUrl( "" );
+        final String jobUrl = prodUrl + "jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp?view=viewJob&reference="
+                + job.getReference( );
+        final String subjectKey = isDeletion ? ( success ? "accountgenerator.notification.deletion.success.subject"
+                : "accountgenerator.notification.deletion.failure.subject" )
+                : ( success ? "accountgenerator.notification.creation.success.subject" : "accountgenerator.notification.creation.failure.subject" );
+        final String bodyKey = isDeletion ? ( success ? "accountgenerator.notification.deletion.success.body"
+                : "accountgenerator.notification.deletion.failure.body" )
+                : ( success ? "accountgenerator.notification.creation.success.body" : "accountgenerator.notification.creation.failure.body" );
+        final java.util.Locale locale = java.util.Locale.FRANCE;
+        final String subject = fr.paris.lutece.portal.service.i18n.I18nService.getLocalizedString( subjectKey, new String [ ] {
+                job.getReference( )
+        }, locale );
+        final String body = fr.paris.lutece.portal.service.i18n.I18nService.getLocalizedString( bodyKey, new String [ ] {
+                job.getReference( ), jobUrl, String.valueOf( job.getNbSuccess( ) ), String.valueOf( job.getNbFailure( ) ),
+                job.getErrorMessage( ) == null ? "" : job.getErrorMessage( )
+        }, locale );
+        try
+        {
+            MailService.sendMailHtml( recipient, senderName, senderEmail, subject, body );
+        }
+        catch( final Throwable t )
+        {
+            AppLogService.error( "AccountGenerator - Failed to send completion mail for job " + job.getReference( ), t );
+        }
     }
 }

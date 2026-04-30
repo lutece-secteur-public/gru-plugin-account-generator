@@ -44,6 +44,7 @@ public class AccountGenerationJob
     private Timestamp _dateCompletion;
     private Timestamp _dateAccountsDeletion;
     private String _strUser;
+    private String _strUserEmail;
     private String _strClientCode;
     private String _strAppCode;
     private String _strAuthorName;
@@ -125,6 +126,16 @@ public class AccountGenerationJob
     public void setUser( String strUser )
     {
         _strUser = strUser;
+    }
+
+    public String getUserEmail( )
+    {
+        return _strUserEmail;
+    }
+
+    public void setUserEmail( String strUserEmail )
+    {
+        _strUserEmail = strUserEmail;
     }
 
     public String getClientCode( )

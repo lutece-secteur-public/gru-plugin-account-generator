@@ -44,10 +44,10 @@ import java.util.Optional;
 
 public class AccountGenerationJobDao implements IAccountGenerationJobDao
 {
-    private static final String COLUMNS = "id_job, reference, status, date_creation, date_completion, date_accounts_deletion, user_name, client_code, app_code, author_name, author_type, batch_size, nb_processed, nb_success, nb_failure, request_json, file_key, file_name, error_message";
+    private static final String COLUMNS = "id_job, reference, status, date_creation, date_completion, date_accounts_deletion, user_name, user_email, client_code, app_code, author_name, author_type, batch_size, nb_processed, nb_success, nb_failure, request_json, file_key, file_name, error_message";
 
-    private static final String SQL_INSERT = "INSERT INTO accountgenerator_job ( reference, status, date_creation, date_completion, date_accounts_deletion, user_name, client_code, app_code, author_name, author_type, batch_size, nb_processed, nb_success, nb_failure, request_json, file_key, file_name, error_message ) VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )";
-    private static final String SQL_UPDATE = "UPDATE accountgenerator_job SET status = ?, date_completion = ?, date_accounts_deletion = ?, nb_processed = ?, nb_success = ?, nb_failure = ?, file_key = ?, file_name = ?, error_message = ? WHERE id_job = ?";
+    private static final String SQL_INSERT = "INSERT INTO accountgenerator_job ( reference, status, date_creation, date_completion, date_accounts_deletion, user_name, user_email, client_code, app_code, author_name, author_type, batch_size, nb_processed, nb_success, nb_failure, request_json, file_key, file_name, error_message ) VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? )";
+    private static final String SQL_UPDATE = "UPDATE accountgenerator_job SET status = ?, date_completion = ?, date_accounts_deletion = ?, user_email = ?, nb_processed = ?, nb_success = ?, nb_failure = ?, file_key = ?, file_name = ?, error_message = ? WHERE id_job = ?";
     private static final String SQL_SELECT_BY_REF = "SELECT " + COLUMNS + " FROM accountgenerator_job WHERE reference = ?";
     private static final String SQL_SELECT_BY_ID = "SELECT " + COLUMNS + " FROM accountgenerator_job WHERE id_job = ?";
     private static final String SQL_SELECT_ALL = "SELECT " + COLUMNS + " FROM accountgenerator_job ORDER BY date_creation DESC, id_job DESC";
@@ -64,6 +64,7 @@ public class AccountGenerationJobDao implements IAccountGenerationJobDao
             daoUtil.setTimestamp( ++i, job.getCompletionDate( ) );
             daoUtil.setTimestamp( ++i, job.getAccountsDeletionDate( ) );
             daoUtil.setString( ++i, job.getUser( ) );
+            daoUtil.setString( ++i, job.getUserEmail( ) );
             daoUtil.setString( ++i, job.getClientCode( ) );
             daoUtil.setString( ++i, job.getAppCode( ) );
             daoUtil.setString( ++i, job.getAuthorName( ) );
@@ -93,6 +94,7 @@ public class AccountGenerationJobDao implements IAccountGenerationJobDao
             daoUtil.setString( ++i, job.getStatus( ).name( ) );
             daoUtil.setTimestamp( ++i, job.getCompletionDate( ) );
             daoUtil.setTimestamp( ++i, job.getAccountsDeletionDate( ) );
+            daoUtil.setString( ++i, job.getUserEmail( ) );
             daoUtil.setInt( ++i, job.getNbProcessed( ) );
             daoUtil.setInt( ++i, job.getNbSuccess( ) );
             daoUtil.setInt( ++i, job.getNbFailure( ) );
@@ -161,6 +163,7 @@ public class AccountGenerationJobDao implements IAccountGenerationJobDao
         job.setCompletionDate( completion );
         job.setAccountsDeletionDate( daoUtil.getTimestamp( ++i ) );
         job.setUser( daoUtil.getString( ++i ) );
+        job.setUserEmail( daoUtil.getString( ++i ) );
         job.setClientCode( daoUtil.getString( ++i ) );
         job.setAppCode( daoUtil.getString( ++i ) );
         job.setAuthorName( daoUtil.getString( ++i ) );

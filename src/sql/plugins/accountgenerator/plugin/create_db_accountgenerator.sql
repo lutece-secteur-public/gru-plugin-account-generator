@@ -23,6 +23,7 @@ CREATE TABLE accountgenerator_job (
     date_completion TIMESTAMP NULL,
     date_accounts_deletion TIMESTAMP NULL,
     user_name       VARCHAR(255),
+    user_email      VARCHAR(255),
     client_code     VARCHAR(128),
     app_code        VARCHAR(128),
     author_name     VARCHAR(255),
