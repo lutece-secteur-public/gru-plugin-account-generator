@@ -193,6 +193,54 @@ public class IdentityAccountGeneratorService
         }
     }
 
+    /**
+     * Like {@link #createIdentityAccountBatch} but only iterates over the given 1-based iteration indices, so the same login/email pattern can be re-attempted
+     * for the failures of a previous run. The consumer receives the original iteration index (matching the CSV row position).
+     */
+    public void createIdentityAccountBatchForIterations( final AccountGenerationDto accountGenerationDto, final String jobReference,
+            final List<Integer> iterations, final GeneratedAccountConsumer consumer )
+    {
+        if ( accountGenerationDto == null || iterations == null || iterations.isEmpty( ) )
+        {
+            return;
+        }
+
+        final Date generationDate = new Date( );
+        final Timestamp now = Timestamp.from( Instant.now( ) );
+        final String password = isNotBlank( accountGenerationDto.getPassword( ) ) ? accountGenerationDto.getPassword( ) : defaultPassword;
+        final List<IdentityAccount> buffer = new ArrayList<>( DB_FLUSH_SIZE );
+
+        for ( final int i : iterations )
+        {
+            final GeneratedAccountDto account = generateSingle( accountGenerationDto, password, i, now );
+
+            if ( account.isStorable( ) )
+            {
+                final IdentityAccount toStore = new IdentityAccount( );
+                toStore.setGuid( account.getGuid( ) );
+                toStore.setCuid( account.getCuid( ) );
+                toStore.setCreationDate( generationDate );
+                toStore.setExpirationDate( this.addDays( generationDate, accountGenerationDto.getNbDaysOfValidity( ) ) );
+                toStore.setJobReference( jobReference );
+                buffer.add( toStore );
+
+                if ( buffer.size( ) >= DB_FLUSH_SIZE )
+                {
+                    IdentityAccountHome.saveAccounts( buffer );
+                    buffer.clear( );
+                }
+            }
+
+            consumer.accept( account, i );
+        }
+
+        if ( !buffer.isEmpty( ) )
+        {
+            IdentityAccountHome.saveAccounts( buffer );
+            buffer.clear( );
+        }
+    }
+
     private GeneratedAccountDto generateSingle( final AccountGenerationDto accountGenerationDto, final String password, final int i, final Timestamp now )
     {
         final GeneratedAccountDto account = new GeneratedAccountDto( );

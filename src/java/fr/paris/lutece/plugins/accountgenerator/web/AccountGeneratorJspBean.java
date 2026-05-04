@@ -120,10 +120,12 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String MARK_GENERATION_LIMIT = "generation_limit";
     private static final String MARK_FEED_TOKEN = "feed_token";
     private static final String MARK_DELETION_FEED_TOKEN = "deletion_feed_token";
+    private static final String MARK_REPLAY_FEED_TOKEN = "replay_feed_token";
     private static final String MARK_PROGRESS_PERCENT = "progress_percent";
     private static final String MARK_DOWNLOAD_URL = "download_url";
     private static final String MARK_PREVIEW_ROWS = "preview_rows";
     private static final String MARK_DELETE_TOKEN = "delete_token";
+    private static final String MARK_REPLAY_TOKEN = "replay_token";
 
     private static final String MARK_CERTIFIER_LIST = "certifier_list";
 
@@ -137,8 +139,10 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
     private static final String ERROR_FIELD_BIRTHDATE = "accountgenerator.error.field.birthdate";
     private static final String INFO_JOB_SUBMITTED = "accountgenerator.info.job.submitted";
     private static final String INFO_DELETION_SUBMITTED = "accountgenerator.info.job.deletionSubmitted";
+    private static final String INFO_REPLAY_SUBMITTED = "accountgenerator.info.job.replaySubmitted";
 
     private static final String ACTION_DELETE_JOB_ACCOUNTS = "deleteJobAccounts";
+    private static final String ACTION_REPLAY_JOB = "replayJob";
 
     // Remembered form values for re-display on validation error
     private transient Map<String, String> _lastFormValues;
@@ -241,6 +245,12 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
             model.put( MARK_DELETION_FEED_TOKEN, deletionFeedToken );
         }
 
+        final String replayFeedToken = AccountGenerationJobService.instance( ).getReplayProgressFeedToken( job.getReference( ) );
+        if ( replayFeedToken != null )
+        {
+            model.put( MARK_REPLAY_FEED_TOKEN, replayFeedToken );
+        }
+
         if ( AccountGenerationJobService.instance( ).hasDownloadableFile( job ) )
         {
             model.put( MARK_DOWNLOAD_URL, "jsp/admin/plugins/accountgenerator/DownloadCsv.jsp?reference=" + job.getReference( ) );
@@ -248,6 +258,7 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
 
         model.put( MARK_PREVIEW_ROWS, AccountGenerationJobService.instance( ).getCsvFirstAndLast( job ) );
         model.put( MARK_DELETE_TOKEN, SecurityTokenService.getInstance( ).getToken( request, ACTION_DELETE_JOB_ACCOUNTS ) );
+        model.put( MARK_REPLAY_TOKEN, SecurityTokenService.getInstance( ).getToken( request, ACTION_REPLAY_JOB ) );
 
         return getPage( PROPERTY_PAGE_TITLE_VIEW, TEMPLATE_VIEW_JOB, model );
     }
@@ -278,6 +289,37 @@ public class AccountGeneratorJspBean extends MVCAdminJspBean
         catch( final Exception e )
         {
             AppLogService.error( "Failed to delete accounts for job " + reference, e );
+            addError( e.getMessage( ) );
+        }
+        return redirect( request, VIEW_JOB_DETAIL, Collections.singletonMap( PARAMETER_REFERENCE, reference ) );
+    }
+
+    @Action( ACTION_REPLAY_JOB )
+    public String doReplayJob( final HttpServletRequest request ) throws AccessDeniedException
+    {
+        if ( !SecurityTokenService.getInstance( ).validate( request, ACTION_REPLAY_JOB ) )
+        {
+            throw new AccessDeniedException( "Invalid security token" );
+        }
+        final String reference = request.getParameter( PARAMETER_REFERENCE );
+        if ( reference == null )
+        {
+            return redirectView( request, VIEW_MANAGE_JOBS );
+        }
+        try
+        {
+            final String userEmail = getUser( ) != null ? getUser( ).getEmail( ) : null;
+            final AccountGenerationJob job = AccountGenerationJobService.instance( ).replay( reference, userEmail );
+            if ( job == null )
+            {
+                addError( ERROR_JOB_NOT_FOUND, getLocale( ) );
+                return redirectView( request, VIEW_MANAGE_JOBS );
+            }
+            addInfo( INFO_REPLAY_SUBMITTED, getLocale( ) );
+        }
+        catch( final Exception e )
+        {
+            AppLogService.error( "Failed to replay job " + reference, e );
             addError( e.getMessage( ) );
         }
         return redirect( request, VIEW_JOB_DETAIL, Collections.singletonMap( PARAMETER_REFERENCE, reference ) );

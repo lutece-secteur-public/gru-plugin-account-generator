@@ -52,7 +52,7 @@
             </#if>
         </dl>
 
-        <#if feed_token?? || deletion_feed_token??>
+        <#if feed_token?? || deletion_feed_token?? || replay_feed_token??>
             <#-- Self-contained progress UI: avoids the @progress macro because the admin theme loads
                  progress-manager.js globally AND the macro instantiates LuteceProgress, which results
                  in two concurrent pollers — duplicating lines and emitting empty-timestamp lines on
@@ -161,7 +161,15 @@
             </div>
         </#if>
 
-        <#if deletion_feed_token??>
+        <#if replay_feed_token??>
+            <hr/>
+            <h5>#i18n{accountgenerator.view_job.titleReplayProgress}</h5>
+            <div class="progress">
+                <div id="ag-replay-progressbar" class="progress-bar progress-bar-warning" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0 /100</div>
+            </div>
+            <div id="ag-replay-progressbar-report" class="progress-bar-report"></div>
+            <script>agProgressFeed('${replay_feed_token}', 'ag-replay-progressbar', 'ag-replay-progressbar-report', 2000);</script>
+        <#elseif deletion_feed_token??>
             <hr/>
             <h5>#i18n{accountgenerator.view_job.titleDeletionProgress}</h5>
             <div class="progress">
@@ -169,14 +177,24 @@
             </div>
             <div id="ag-deletion-progressbar-report" class="progress-bar-report"></div>
             <script>agProgressFeed('${deletion_feed_token}', 'ag-deletion-progressbar', 'ag-deletion-progressbar-report', 2000);</script>
-        <#elseif (job.status.name() == "COMPLETED") && !job.accountsDeletionDate?? && (job.nbSuccess > 0)>
+        <#elseif (job.status.name() == "COMPLETED") && !job.accountsDeletionDate??>
             <hr/>
-            <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp" onsubmit="return confirm('#i18n{accountgenerator.view_job.confirmDelete}');">
-                <input type="hidden" name="action" value="deleteJobAccounts" />
-                <input type="hidden" name="token" value="${delete_token}" />
-                <input type="hidden" name="reference" value="${job.reference}" />
-                <@button type='submit' buttonIcon='trash me-1 mr-1' title='#i18n{accountgenerator.view_job.buttonDeleteAccounts}' color='danger' />
-            </form>
+            <#if (job.nbFailure > 0)>
+                <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp" onsubmit="return confirm('#i18n{accountgenerator.view_job.confirmReplay}');" style="display:inline-block; margin-right:0.5rem;">
+                    <input type="hidden" name="action" value="replayJob" />
+                    <input type="hidden" name="token" value="${replay_token}" />
+                    <input type="hidden" name="reference" value="${job.reference}" />
+                    <@button type='submit' buttonIcon='refresh me-1 mr-1' title='#i18n{accountgenerator.view_job.buttonReplay}' color='warning' />
+                </form>
+            </#if>
+            <#if (job.nbSuccess > 0)>
+                <form method="post" action="jsp/admin/plugins/accountgenerator/AccountGeneratorManagement.jsp" onsubmit="return confirm('#i18n{accountgenerator.view_job.confirmDelete}');" style="display:inline-block;">
+                    <input type="hidden" name="action" value="deleteJobAccounts" />
+                    <input type="hidden" name="token" value="${delete_token}" />
+                    <input type="hidden" name="reference" value="${job.reference}" />
+                    <@button type='submit' buttonIcon='trash me-1 mr-1' title='#i18n{accountgenerator.view_job.buttonDeleteAccounts}' color='danger' />
+                </form>
+            </#if>
         </#if>
     </@boxBody>
 </@box>

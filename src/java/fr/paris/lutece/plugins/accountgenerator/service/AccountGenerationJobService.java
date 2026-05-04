@@ -83,6 +83,8 @@ public class AccountGenerationJobService
     private final ConcurrentHashMap<String, String> _feedTokens = new ConcurrentHashMap<>( );
     // Same idea for asynchronous deletion of a job's generated accounts. Map key: job reference.
     private final ConcurrentHashMap<String, String> _deletionFeedTokens = new ConcurrentHashMap<>( );
+    // Same idea for asynchronous replay of a job's failed iterations. Map key: job reference.
+    private final ConcurrentHashMap<String, String> _replayFeedTokens = new ConcurrentHashMap<>( );
 
     public AccountGenerationJobService( final ExecutorService executor )
     {
@@ -164,6 +166,14 @@ public class AccountGenerationJobService
     public String getDeletionProgressFeedToken( final String reference )
     {
         return _deletionFeedTokens.get( reference );
+    }
+
+    /**
+     * @return the transient progress feed token for a running replay of a job's failed iterations, or {@code null} when no replay is in progress.
+     */
+    public String getReplayProgressFeedToken( final String reference )
+    {
+        return _replayFeedTokens.get( reference );
     }
 
     /**
@@ -249,7 +259,8 @@ public class AccountGenerationJobService
             return null;
         }
         final AccountGenerationJob job = optJob.get( );
-        if ( job.getAccountsDeletionDate( ) != null || _deletionFeedTokens.containsKey( reference ) )
+        if ( job.getAccountsDeletionDate( ) != null || _deletionFeedTokens.containsKey( reference ) || _replayFeedTokens.containsKey( reference )
+                || _feedTokens.containsKey( reference ) )
         {
             return job;
         }
@@ -266,6 +277,191 @@ public class AccountGenerationJobService
 
         _executor.submit( ( ) -> runDeletion( job, feedToken ) );
         return job;
+    }
+
+    /**
+     * Schedule asynchronous re-execution of the iterations that failed during the original run. Reads the original DTO from the persisted request JSON and the
+     * failed iteration indices from the CSV, then writes back updated rows for each replayed account. No-op if the job is already busy (running, deleting,
+     * replaying) or has no failures left.
+     */
+    public synchronized AccountGenerationJob replay( final String reference, final String userEmail )
+    {
+        final Optional<AccountGenerationJob> optJob = AccountGenerationJobHome.findByReference( reference );
+        if ( !optJob.isPresent( ) )
+        {
+            return null;
+        }
+        final AccountGenerationJob job = optJob.get( );
+        if ( job.getAccountsDeletionDate( ) != null || _deletionFeedTokens.containsKey( reference ) || _replayFeedTokens.containsKey( reference )
+                || _feedTokens.containsKey( reference ) || job.getStatus( ) != AccountGenerationJobStatus.COMPLETED || job.getNbFailure( ) <= 0 )
+        {
+            return job;
+        }
+
+        final List<Integer> failedIterations = findFailedIterations( job );
+        if ( failedIterations.isEmpty( ) )
+        {
+            return job;
+        }
+
+        final AccountGenerationDto dto;
+        try
+        {
+            dto = _objectMapper.readValue( job.getRequestJson( ), AccountGenerationDto.class );
+        }
+        catch( final Exception e )
+        {
+            AppLogService.error( "Failed to deserialize request JSON for replay of job " + reference, e );
+            return job;
+        }
+
+        if ( userEmail != null && !userEmail.isEmpty( ) )
+        {
+            job.setUserEmail( userEmail );
+            AccountGenerationJobHome.update( job );
+        }
+
+        final String feedToken = ProgressManagerService.getInstance( ).registerFeed( reference + "-replay", failedIterations.size( ) );
+        _replayFeedTokens.put( reference, feedToken );
+
+        _executor.submit( ( ) -> runReplay( job, dto, failedIterations, feedToken ) );
+        return job;
+    }
+
+    private List<Integer> findFailedIterations( final AccountGenerationJob job )
+    {
+        final List<Integer> failed = new java.util.ArrayList<>( );
+        if ( job.getFileKey( ) == null )
+        {
+            return failed;
+        }
+        final Path csvPath = getFileStoreService( ).getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
+        if ( !Files.exists( csvPath ) )
+        {
+            return failed;
+        }
+        try ( BufferedReader reader = Files.newBufferedReader( csvPath, StandardCharsets.UTF_8 ) )
+        {
+            reader.readLine( ); // skip header
+            String line;
+            int rowIndex = 0;
+            while ( ( line = reader.readLine( ) ) != null )
+            {
+                rowIndex++;
+                final String [ ] cols = line.split( java.util.regex.Pattern.quote( CSV_SEPARATOR ), -1 );
+                final boolean hasCuid = cols.length > 2 && cols[2] != null && !cols[2].isEmpty( );
+                final boolean hasGuid = cols.length > 3 && cols[3] != null && !cols[3].isEmpty( );
+                if ( !hasCuid && !hasGuid )
+                {
+                    failed.add( rowIndex );
+                }
+            }
+        }
+        catch( final IOException e )
+        {
+            AppLogService.error( "Failed to scan CSV for failed iterations of job " + job.getReference( ), e );
+        }
+        return failed;
+    }
+
+    private void runReplay( final AccountGenerationJob job, final AccountGenerationDto dto, final List<Integer> iterations, final String feedToken )
+    {
+        AppLogService.info( "AccountGenerator - runReplay START for job " + job.getReference( ) + " (" + iterations.size( ) + " iterations)" );
+        final ProgressManagerService progress = ProgressManagerService.getInstance( );
+        progress.addReport( feedToken, "Replay of " + iterations.size( ) + " failed iterations started" );
+
+        final java.util.Map<Integer, String> updatedRows = new java.util.HashMap<>( );
+        final int [ ] progressCount = { 0 };
+        final int [ ] newSuccessCount = { 0 };
+        final int totalToReplay = iterations.size( );
+
+        try
+        {
+            IdentityAccountGeneratorService.instance( ).createIdentityAccountBatchForIterations( dto, job.getReference( ), iterations,
+                    ( account, iteration ) -> {
+                        updatedRows.put( iteration, csvLine( account ) );
+                        progressCount[0]++;
+                        final boolean success = account.getCuid( ) != null || account.getGuid( ) != null;
+                        if ( success )
+                        {
+                            newSuccessCount[0]++;
+                            progress.incrementSuccess( feedToken, 1 );
+                        }
+                        else
+                        {
+                            progress.incrementFailure( feedToken, 1 );
+                        }
+                        if ( progressCount[0] % FILE_FLUSH_SIZE == 0 || progressCount[0] == totalToReplay )
+                        {
+                            progress.addReport( feedToken, "Replayed " + progressCount[0] + " / " + totalToReplay );
+                        }
+                    } );
+
+            rewriteCsvWithUpdates( job, updatedRows );
+
+            job.setNbSuccess( job.getNbSuccess( ) + newSuccessCount[0] );
+            job.setNbFailure( Math.max( 0, job.getNbFailure( ) - newSuccessCount[0] ) );
+            AccountGenerationJobHome.update( job );
+            progress.addReport( feedToken, "Replay completed: " + newSuccessCount[0] + " new success, " + ( totalToReplay - newSuccessCount[0] )
+                    + " still failing" );
+            sendCompletionMail( job, false, true );
+        }
+        catch( final Throwable e )
+        {
+            AppLogService.error( "AccountGenerator - Replay of job " + job.getReference( ) + " failed", e );
+            progress.addReport( feedToken, "Replay failed: " + e.getMessage( ) );
+            sendCompletionMail( job, false, false );
+        }
+        finally
+        {
+            final String refToClean = job.getReference( );
+            new Thread( ( ) -> {
+                try
+                {
+                    Thread.sleep( 15000 );
+                }
+                catch( final InterruptedException ie )
+                {
+                    Thread.currentThread( ).interrupt( );
+                }
+                _replayFeedTokens.remove( refToClean );
+                progress.unRegisterFeed( feedToken );
+            } ).start( );
+        }
+    }
+
+    private void rewriteCsvWithUpdates( final AccountGenerationJob job, final java.util.Map<Integer, String> updates ) throws IOException
+    {
+        if ( job.getFileKey( ) == null || updates.isEmpty( ) )
+        {
+            return;
+        }
+        final Path csvPath = getFileStoreService( ).getStorageDir( ).toPath( ).resolve( job.getFileKey( ) );
+        if ( !Files.exists( csvPath ) )
+        {
+            return;
+        }
+        final Path tmp = csvPath.resolveSibling( csvPath.getFileName( ) + ".tmp" );
+        try ( BufferedReader reader = Files.newBufferedReader( csvPath, StandardCharsets.UTF_8 );
+                BufferedWriter writer = Files.newBufferedWriter( tmp, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING ) )
+        {
+            final String header = reader.readLine( );
+            if ( header != null )
+            {
+                writer.write( header );
+                writer.newLine( );
+            }
+            String line;
+            int rowIndex = 0;
+            while ( ( line = reader.readLine( ) ) != null )
+            {
+                rowIndex++;
+                final String updated = updates.get( rowIndex );
+                writer.write( updated != null ? updated : line );
+                writer.newLine( );
+            }
+        }
+        Files.move( tmp, csvPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING );
     }
 
     private void runDeletion( final AccountGenerationJob job, final String feedToken )
